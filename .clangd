@@ -1,0 +1,55 @@
+# Сгенерировано Clangd Config Assistant: Qt6: Core, Gui, Svg, Widgets, Xml | compile_commands.json: build-release | g++.exe (x86_64-w64-mingw32) | C++17
+CompileFlags:
+  CompilationDatabase: "build-release"
+  Compiler: "C:/Qt/Tools/mingw1310_64/bin/g++.exe"
+  Add:
+    - --target=x86_64-w64-mingw32
+    - -std=c++17
+    - -DMINGW_HAS_SECURE_API=1
+    - -DQT_CORE_LIB
+    - -DQT_GUI_LIB
+    - -DQT_NO_DEBUG
+    - -DQT_SVG_LIB
+    - -DQT_WIDGETS_LIB
+    - -DQT_XML_LIB
+    - -DUNICODE
+    - -DWIN32
+    - -DWIN64
+    - -D_ENABLE_EXTENDED_ALIGNED_STORAGE
+    - -D_UNICODE
+    - -D_WIN64
+    - -DNDEBUG
+    - -Ic:/Users/marus/OneDrive/Desktop/editor_qt6
+    - -Ic:/Users/marus/OneDrive/Desktop/editor_qt6/src
+    - -IC:/Users/marus/OneDrive/Desktop/editor_qt6/build-release/dcseditor_qt6_autogen/include
+    - -IC:/Users/marus/OneDrive/Desktop/editor_qt6
+    - -isystem
+    - C:/Qt/6.10.2/mingw_64/include/QtCore
+    - -isystem
+    - C:/Qt/6.10.2/mingw_64/include
+    - -isystem
+    - C:/Qt/6.10.2/mingw_64/mkspecs/win32-g++
+    - -isystem
+    - C:/Qt/6.10.2/mingw_64/include/QtGui
+    - -isystem
+    - C:/Qt/6.10.2/mingw_64/include/QtWidgets
+    - -isystem
+    - C:/Qt/6.10.2/mingw_64/include/QtSvg
+    - -isystem
+    - C:/Qt/6.10.2/mingw_64/include/QtXml
+    - -isystem
+    - C:/Qt/Tools/mingw1310_64/x86_64-w64-mingw32/include
+    - -Wno-unknown-warning-option
+    - -Wno-unused-command-line-argument
+    - -Wno-attributes
+  Remove:
+    - -fno-keep-inline-dllexport
+    - -mno-direct-extern-access
+    - "-fconcepts-diagnostics-depth=*"
+    - -fmodules-ts
+    - "-fmodule-mapper=*"
+    - "-fdeps-format=*"
+    - "-fdeps-file=*"
+    - "-fdeps-target=*"
+Documentation:
+  CommentFormat: Doxygen
