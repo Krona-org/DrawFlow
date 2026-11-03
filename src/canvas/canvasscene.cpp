@@ -95,7 +95,8 @@ QList<QRectF> CanvasScene::obstacleRects(const QGraphicsItem *exclude1, const QG
     for (QGraphicsItem *item : items()) {
         if (item == exclude1 || item == exclude2) continue;
         if (auto rect = dynamic_cast<RectangleElement*>(item)) {
-            obstacles.append(rect->sceneBoundingRect());
+            // Используем фактическую физическую геометрию прямоугольника на сцене (без отступов для хэндлов)
+            obstacles.append(rect->mapRectToScene(rect->rect()));
         }
     }
     return obstacles;
@@ -158,7 +159,7 @@ void CanvasScene::updateConnectedLines(RectangleElement *rect) {
                     endNorm = line->endRect()->portNormal(line->endPort());
                 }
 
-                auto obstacles = obstacleRects(line->startRect(), line->endRect());
+                auto obstacles = obstacleRects();
                 QVector<QPointF> route = OrthogonalRouter::route(startPt, startNorm, endPt, endNorm, obstacles, 18.0);
                 line->setPoints(route);
             }
@@ -375,14 +376,21 @@ void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
     if (isConnectingFromPort_ && currentCreatingLine_ != nullptr) {
         QPointF curPos = event->scenePos();
 
-        // Проверяем привязку к порту другого прямоугольника
-        auto targetMatch = findPortAt(curPos, connectStartRect_);
+        // Проверяем привязку к порту любого прямоугольника (кроме того же самого исходного порта)
+        auto targetMatch = findPortAt(curPos, nullptr);
+        if (targetMatch.first == connectStartRect_ && targetMatch.second == connectStartPort_) {
+            targetMatch = { nullptr, PortPosition::None };
+        }
+
         QPointF targetPt = curPos;
         QPointF targetNormal(0, 0);
         RectangleElement *targetRect = targetMatch.first;
         PortPosition targetPort = targetMatch.second;
 
         if (targetRect && targetPort != PortPosition::None) {
+            if (lastHoveredRect_ && lastHoveredRect_ != targetRect) {
+                lastHoveredRect_->setHoveredPort(PortPosition::None);
+            }
             targetPt = targetRect->portScenePos(targetPort);
             targetNormal = targetRect->portNormal(targetPort);
             targetRect->setHoveredPort(targetPort);
@@ -402,7 +410,7 @@ void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
         QPointF startPt = connectStartRect_->portScenePos(connectStartPort_);
         QPointF startNorm = connectStartRect_->portNormal(connectStartPort_);
 
-        auto obstacles = obstacleRects(connectStartRect_, targetRect);
+        auto obstacles = obstacleRects();
         QVector<QPointF> route = OrthogonalRouter::route(startPt, startNorm, targetPt, targetNormal, obstacles, 18.0);
         currentCreatingLine_->setPoints(route);
         currentCreatingLine_->setEndConnection(targetRect, targetPort);
