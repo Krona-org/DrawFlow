@@ -1,5 +1,6 @@
 #include "canvasscene.h"
 #include "orthogonalrouter.h"
+#include "undocommands.h"
 
 #include <QGraphicsSceneMouseEvent>
 #include <QKeyEvent>
@@ -77,8 +78,11 @@ void CanvasScene::pasteClipboard() {
 
     clearSelection();
 
+    if (undoStack_) {
+        undoStack_->beginMacro(QStringLiteral("Вставка элементов"));
+    }
+
     QHash<RectangleElement*, RectangleElement*> oldToNewRect;
-    QList<ShapeElement*> newElements;
 
     // 1. Создаем копии прямоугольников
     for (const auto &data : s_clipboard_.rects) {
@@ -95,9 +99,14 @@ void CanvasScene::pasteClipboard() {
         newRect->setFillStyle(data.fillStyle);
         newRect->setZValue(data.zValue);
 
-        addItem(newRect);
         oldToNewRect[data.originalPtr] = newRect;
-        newElements.append(newRect);
+        if (undoStack_) {
+            undoStack_->push(new AddElementCommand(this, newRect, false));
+        } else {
+            addItem(newRect);
+            newRect->setSelected(true);
+            emit elementAdded(newRect);
+        }
     }
 
     // 2. Создаем копии линий
@@ -133,14 +142,17 @@ void CanvasScene::pasteClipboard() {
             newLine->setEndConnection(mappedEnd, data.endPort);
         }
 
-        addItem(newLine);
-        newElements.append(newLine);
+        if (undoStack_) {
+            undoStack_->push(new AddElementCommand(this, newLine, false));
+        } else {
+            addItem(newLine);
+            newLine->setSelected(true);
+            emit elementAdded(newLine);
+        }
     }
 
-    // 3. Выделяем все новые элементы и оповещаем систему
-    for (ShapeElement *elem : newElements) {
-        elem->setSelected(true);
-        emit elementAdded(elem);
+    if (undoStack_) {
+        undoStack_->endMacro();
     }
 
     // 4. Обновляем маршруты связанных линий
@@ -166,6 +178,7 @@ CanvasScene::CanvasScene(QObject *parent)
     : QGraphicsScene(parent)
 {
     setSceneRect(-5000, -5000, 10000, 10000);
+    undoStack_ = new QUndoStack(this);
     connect(this, &QGraphicsScene::selectionChanged, this, &CanvasScene::sceneSelectionChanged);
 }
 
@@ -330,9 +343,13 @@ ShapeElement* CanvasScene::addElementAt(ElementType type, const QPointF &scenePo
         auto rectItem = new RectangleElement(nextElementId_++, name, QUuid::createUuid());
         rectItem->setPos(pos);
         rectItem->setRect(QRectF(0, 0, 120, 80));
-        addItem(rectItem);
-        rectItem->setSelected(true);
-        emit elementAdded(rectItem);
+        if (undoStack_) {
+            undoStack_->push(new AddElementCommand(this, rectItem, false));
+        } else {
+            addItem(rectItem);
+            rectItem->setSelected(true);
+            emit elementAdded(rectItem);
+        }
         return rectItem;
     } else if (type == ElementType::Line) {
         lineCount_++;
@@ -341,9 +358,13 @@ ShapeElement* CanvasScene::addElementAt(ElementType type, const QPointF &scenePo
         lineItem->setPos(0, 0);
         lineItem->setP1(pos);
         lineItem->setP2(pos + QPointF(120, 60));
-        addItem(lineItem);
-        lineItem->setSelected(true);
-        emit elementAdded(lineItem);
+        if (undoStack_) {
+            undoStack_->push(new AddElementCommand(this, lineItem, false));
+        } else {
+            addItem(lineItem);
+            lineItem->setSelected(true);
+            emit elementAdded(lineItem);
+        }
         return lineItem;
     }
     return nullptr;
@@ -351,8 +372,18 @@ ShapeElement* CanvasScene::addElementAt(ElementType type, const QPointF &scenePo
 
 void CanvasScene::deleteSelectedElements() {
     const auto sel = selectedItems();
+    QList<ShapeElement*> toDelete;
     for (QGraphicsItem *item : sel) {
         if (auto shape = dynamic_cast<ShapeElement*>(item)) {
+            toDelete.append(shape);
+        }
+    }
+    if (toDelete.isEmpty()) return;
+
+    if (undoStack_) {
+        undoStack_->push(new DeleteElementsCommand(this, toDelete));
+    } else {
+        for (ShapeElement *shape : toDelete) {
             removeItem(shape);
             emit elementRemoved(shape);
             shape->deleteLater();
@@ -362,6 +393,9 @@ void CanvasScene::deleteSelectedElements() {
 
 void CanvasScene::clearAll() {
     clear();
+    if (undoStack_) {
+        undoStack_->clear();
+    }
     nextElementId_ = 1;
     rectangleCount_ = 0;
     lineCount_ = 0;
@@ -523,6 +557,30 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
     }
 
     QGraphicsScene::mousePressEvent(event);
+
+    if (event->button() == Qt::LeftButton) {
+        preMovePositions_.clear();
+        for (QGraphicsItem *item : selectedItems()) {
+            if (auto shape = dynamic_cast<ShapeElement*>(item)) {
+                preMovePositions_[shape] = shape->pos();
+            }
+        }
+
+        preResizeShape_ = nullptr;
+        if (selectedItems().size() == 1) {
+            ShapeElement *sel = dynamic_cast<ShapeElement*>(selectedItems().first());
+            if (auto rect = dynamic_cast<RectangleElement*>(sel)) {
+                preResizeShape_ = rect;
+                preResizePos_ = rect->pos();
+                preResizeRect_ = rect->rect();
+            } else if (auto line = dynamic_cast<LineElement*>(sel)) {
+                preResizeShape_ = line;
+                preResizeP1_ = line->p1();
+                preResizeP2_ = line->p2();
+                preResizePoints_ = line->points();
+            }
+        }
+    }
 }
 
 void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
@@ -623,7 +681,11 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
 
         if (pts.size() >= 2 && (!isUnconnected || totalLen >= 25.0)) {
             currentCreatingLine_->setSelected(true);
-            emit elementAdded(currentCreatingLine_);
+            if (undoStack_) {
+                undoStack_->push(new AddElementCommand(this, currentCreatingLine_, true));
+            } else {
+                emit elementAdded(currentCreatingLine_);
+            }
         } else {
             removeItem(currentCreatingLine_);
             delete currentCreatingLine_;
@@ -652,7 +714,11 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
         }
 
         currentCreatingElement_->setSelected(true);
-        emit elementAdded(currentCreatingElement_);
+        if (undoStack_) {
+            undoStack_->push(new AddElementCommand(this, currentCreatingElement_, true));
+        } else {
+            emit elementAdded(currentCreatingElement_);
+        }
         currentCreatingElement_ = nullptr;
 
         setActiveTool(ElementType::None);
@@ -667,9 +733,66 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
     if (sel && sel->elementType() == ElementType::Rectangle) {
         updateConnectedLines(dynamic_cast<RectangleElement*>(sel));
     }
+
+    // Проверяем изменение размера или перемещение
+    if (preResizeShape_ && preResizeShape_->scene() == this) {
+        if (auto rect = dynamic_cast<RectangleElement*>(preResizeShape_)) {
+            if (rect->pos() != preResizePos_ || rect->rect() != preResizeRect_) {
+                if (undoStack_) {
+                    undoStack_->push(new ResizeRectangleCommand(this, rect, preResizePos_, preResizeRect_, rect->pos(), rect->rect()));
+                }
+                preResizeShape_ = nullptr;
+                preMovePositions_.clear();
+                return;
+            }
+        } else if (auto line = dynamic_cast<LineElement*>(preResizeShape_)) {
+            if (line->p1() != preResizeP1_ || line->p2() != preResizeP2_ || line->points() != preResizePoints_) {
+                if (undoStack_) {
+                    undoStack_->push(new ResizeLineCommand(this, line, preResizeP1_, preResizeP2_, preResizePoints_, line->p1(), line->p2(), line->points()));
+                }
+                preResizeShape_ = nullptr;
+                preMovePositions_.clear();
+                return;
+            }
+        }
+    }
+    preResizeShape_ = nullptr;
+
+    bool moved = false;
+    QHash<ShapeElement*, QPointF> newPositions;
+    for (auto it = preMovePositions_.begin(); it != preMovePositions_.end(); ++it) {
+        ShapeElement *elem = it.key();
+        if (elem && elem->scene() == this) {
+            newPositions[elem] = elem->pos();
+            if ((elem->pos() - it.value()).manhattanLength() > 1.0) {
+                moved = true;
+            }
+        }
+    }
+    if (moved && undoStack_) {
+        undoStack_->push(new MoveElementsCommand(this, preMovePositions_, newPositions));
+    }
+    preMovePositions_.clear();
 }
 
 void CanvasScene::keyPressEvent(QKeyEvent *event) {
+    if (event->matches(QKeySequence::Undo) ||
+        ((event->modifiers() & Qt::ControlModifier) && event->key() == Qt::Key_Z && !(event->modifiers() & Qt::ShiftModifier))) {
+        if (undoStack_ && undoStack_->canUndo()) {
+            undoStack_->undo();
+        }
+        event->accept();
+        return;
+    }
+    if (event->matches(QKeySequence::Redo) ||
+        ((event->modifiers() & Qt::ControlModifier) && event->key() == Qt::Key_Y) ||
+        ((event->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier)) == (Qt::ControlModifier | Qt::ShiftModifier) && event->key() == Qt::Key_Z)) {
+        if (undoStack_ && undoStack_->canRedo()) {
+            undoStack_->redo();
+        }
+        event->accept();
+        return;
+    }
     if (event->matches(QKeySequence::Copy) ||
         (event->modifiers() & Qt::ControlModifier && (event->key() == Qt::Key_C || event->key() == Qt::Key_Insert))) {
         copySelection();

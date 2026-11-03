@@ -125,6 +125,16 @@ void MainWindow::connectScene(CanvasScene *scene) {
             if (idx >= 0) comboGridStep_->setCurrentIndex(idx);
         }
     });
+
+    if (auto stack = scene->undoStack()) {
+        connect(stack, &QUndoStack::canUndoChanged, ui->actionUndo, &QAction::setEnabled);
+        connect(stack, &QUndoStack::canRedoChanged, ui->actionRedo, &QAction::setEnabled);
+        ui->actionUndo->setEnabled(stack->canUndo());
+        ui->actionRedo->setEnabled(stack->canRedo());
+    } else {
+        ui->actionUndo->setEnabled(false);
+        ui->actionRedo->setEnabled(false);
+    }
 }
 
 void MainWindow::onPageChanged(int index) {
@@ -132,6 +142,10 @@ void MainWindow::onPageChanged(int index) {
 
     if (scene_) {
         disconnect(scene_, nullptr, this, nullptr);
+        if (scene_->undoStack()) {
+            disconnect(scene_->undoStack(), nullptr, ui->actionUndo, nullptr);
+            disconnect(scene_->undoStack(), nullptr, ui->actionRedo, nullptr);
+        }
     }
 
     activePageIndex_ = index;
@@ -269,6 +283,12 @@ void MainWindow::setupUiConnections() {
     connect(tabWidget_, &CanvasTabWidget::pageChanged, this, &MainWindow::onPageChanged);
 
     // Правка
+    connect(ui->actionUndo, &QAction::triggered, this, [this]() {
+        if (scene_ && scene_->undoStack()) scene_->undoStack()->undo();
+    });
+    connect(ui->actionRedo, &QAction::triggered, this, [this]() {
+        if (scene_ && scene_->undoStack()) scene_->undoStack()->redo();
+    });
     connect(ui->actionCut, &QAction::triggered, this, [this]() {
         if (scene_) scene_->cutSelection();
     });

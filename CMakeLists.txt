@@ -45,6 +45,8 @@ set(SOURCES
     src/canvas/canvastabwidget.cpp
     src/canvas/orthogonalrouter.h
     src/canvas/orthogonalrouter.cpp
+    src/canvas/undocommands.h
+    src/canvas/undocommands.cpp
 
     src/frames/elementslibraryframe.h
     src/frames/elementslibraryframe.cpp
