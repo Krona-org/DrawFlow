@@ -452,7 +452,14 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
             lastHoveredPort_ = PortPosition::None;
         }
 
-        if (currentCreatingLine_->points().size() >= 2) {
+        bool isUnconnected = (currentCreatingLine_->endRect() == nullptr);
+        qreal totalLen = 0.0;
+        const auto &pts = currentCreatingLine_->points();
+        for (int i = 0; i < pts.size() - 1; ++i) {
+            totalLen += std::hypot(pts[i + 1].x() - pts[i].x(), pts[i + 1].y() - pts[i].y());
+        }
+
+        if (pts.size() >= 2 && (!isUnconnected || totalLen >= 25.0)) {
             currentCreatingLine_->setSelected(true);
             emit elementAdded(currentCreatingLine_);
         } else {

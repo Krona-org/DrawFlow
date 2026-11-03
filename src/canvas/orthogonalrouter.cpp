@@ -80,6 +80,14 @@ QVector<QPointF> OrthogonalRouter::simplifyCollinear(const QVector<QPointF> &pts
         result.append(pts.last());
     }
 
+    if (result.size() < 2) {
+        if (pts.size() >= 2) {
+            return { pts.first(), pts.last() };
+        } else if (!pts.isEmpty()) {
+            return { pts.first(), pts.first() + QPointF(20.0, 0.0) };
+        }
+    }
+
     return result;
 }
 
@@ -206,6 +214,12 @@ QVector<QPointF> OrthogonalRouter::route(
     const QList<QRectF> &obstacles,
     qreal margin
 ) {
+    // Быстрый выход: если начальная и конечная точки совпадают
+    if (std::hypot(start.x() - end.x(), start.y() - end.y()) < 2.0) {
+        QPointF norm = (startNormal.manhattanLength() > 0.1) ? startNormal : QPointF(1.0, 0.0);
+        return { start, start + norm * margin };
+    }
+
     // 1. Сначала пробуем идеальные формулы (H-V-H midpoint, V-H-V midpoint, L-изгиб)
     QVector<QPointF> ideal = tryIdealFormulaRoute(start, startNormal, end, endNormal, obstacles, margin);
     if (!ideal.isEmpty()) {
@@ -261,6 +275,10 @@ QVector<QPointF> OrthogonalRouter::route(
 
     int W = static_cast<int>(xs.size());
     int H = static_cast<int>(ys.size());
+
+    if (W < 2 || H < 2) {
+        return { start, end };
+    }
 
     auto findClosestNode = [&](const QPointF &pt) -> int {
         int bestIdx = 0;
@@ -346,10 +364,10 @@ QVector<QPointF> OrthogonalRouter::route(
             qreal dist = std::hypot(nPos.x() - cPos.x(), nPos.y() - cPos.y());
             qreal extraTurn = (current.dir != 0 && current.dir != dirs[i]) ? turnPenalty : 0.0;
 
-            // Предпочтение центрированным каналам (midX / midY) для эстетики
-            qreal centerBonus = (std::abs(nPos.x() - midX) < 1.0 || std::abs(nPos.y() - midY) < 1.0) ? -10.0 : 0.0;
+            // Предпочтение центрированным каналам (midX / midY) для эстетики: положительный штраф за отклонение
+            qreal nonCenterPenalty = (std::abs(nPos.x() - midX) < 1.0 || std::abs(nPos.y() - midY) < 1.0) ? 0.0 : 6.0;
 
-            qreal tentG = current.cost + dist + extraTurn + centerBonus;
+            qreal tentG = current.cost + dist + extraTurn + nonCenterPenalty;
 
             int nNode = ny * W + nx;
             int nKey = encode(nNode, dirs[i]);
@@ -366,12 +384,15 @@ QVector<QPointF> OrthogonalRouter::route(
     QVector<QPointF> path;
     if (bestEndState != -1) {
         int curr = bestEndState;
-        while (curr != startState) {
+        int maxSteps = W * H * 4 + 10;
+        while (curr != startState && --maxSteps > 0) {
             int node = curr / 4;
             int x = node % W;
             int y = node / W;
             path.prepend(QPointF(xs[x], ys[y]));
-            curr = cameFrom[curr];
+            auto it = cameFrom.find(curr);
+            if (it == cameFrom.end()) break;
+            curr = it->second;
         }
         int sX = startNode % W;
         int sY = startNode / W;
