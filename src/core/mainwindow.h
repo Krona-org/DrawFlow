@@ -5,6 +5,7 @@
 #include "src/frames/elementslibraryframe.h"
 #include "src/frames/windowelementsframe.h"
 
+#include <QList>
 #include <QMainWindow>
 
 class QActionGroup;
@@ -32,18 +33,29 @@ private slots:
     void onAbout();
     void onToolChanged(ElementType tool);
 
+    void onPageChanged(int index);
+    void onAddPage();
+
 private:
     void setupUiConnections();
     void createDockWindows();
     QWidget* createCustomDockTitleBar(const QString &title, QDockWidget *dock);
-    void initSampleElements();
     void applyStrictMinimalistTheme();
     void updateWindowTitle();
+
+    void connectScene(CanvasScene *scene);
 
     Ui::MainWindow *ui = nullptr;
 
     QString projectName_{QStringLiteral("Схема 1")};
     QString currentFilePath_;
+
+    struct PageData {
+        QString name;
+        CanvasScene *scene = nullptr;
+    };
+    QList<PageData> pages_;
+    int activePageIndex_ = 0;
 
     CanvasScene *scene_ = nullptr;
     CanvasView *view_ = nullptr;

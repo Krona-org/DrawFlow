@@ -19,9 +19,11 @@ public:
     ~CanvasTabWidget() override = default;
 
     void setZoomText(const QString &text);
+    int pageCount() const { return pageButtons_.size(); }
 
 signals:
     void pageChanged(int index);
+    void pageAdded();
 
 private slots:
     void onAddPageClicked();

@@ -1,5 +1,6 @@
 #include "rectangleelement.h"
 
+#include <QGraphicsSceneHoverEvent>
 #include <QPainter>
 #include <cmath>
 
@@ -12,6 +13,7 @@ RectangleElement::RectangleElement(quint32 id, const QString &name, const QUuid 
     fillColor_ = Qt::white;
     borderColor_ = QColor(33, 37, 41);
     borderWidth_ = 1.5;
+    setAcceptHoverEvents(true);
 }
 
 void RectangleElement::setRounding(qreal r) {
@@ -40,12 +42,133 @@ void RectangleElement::setRectSize(qreal w, qreal h) {
     emit propertyChanged();
 }
 
+QPointF RectangleElement::portLocalPos(PortPosition port) const {
+    qreal w = rect_.width();
+    qreal h = rect_.height();
+
+    switch (port) {
+    case PortPosition::Top:
+        return QPointF(w * 0.5, 0.0);
+    case PortPosition::Right:
+        return QPointF(w, h * 0.5);
+    case PortPosition::Bottom:
+        return QPointF(w * 0.5, h);
+    case PortPosition::Left:
+        return QPointF(0.0, h * 0.5);
+    case PortPosition::None:
+    default:
+        return QPointF(w * 0.5, h * 0.5);
+    }
+}
+
+QPointF RectangleElement::portScenePos(PortPosition port) const {
+    return mapToScene(portLocalPos(port));
+}
+
+QPointF RectangleElement::portNormal(PortPosition port) const {
+    switch (port) {
+    case PortPosition::Top:
+        return QPointF(0.0, -1.0);
+    case PortPosition::Right:
+        return QPointF(1.0, 0.0);
+    case PortPosition::Bottom:
+        return QPointF(0.0, 1.0);
+    case PortPosition::Left:
+        return QPointF(-1.0, 0.0);
+    case PortPosition::None:
+    default:
+        return QPointF(0.0, 0.0);
+    }
+}
+
+PortPosition RectangleElement::portAt(const QPointF &localPos) const {
+    const qreal threshold = 12.0;
+
+    const PortPosition ports[] = {
+        PortPosition::Top,
+        PortPosition::Right,
+        PortPosition::Bottom,
+        PortPosition::Left
+    };
+
+    for (PortPosition p : ports) {
+        QPointF pt = portLocalPos(p);
+        if (std::hypot(pt.x() - localPos.x(), pt.y() - localPos.y()) <= threshold) {
+            return p;
+        }
+    }
+    return PortPosition::None;
+}
+
+void RectangleElement::setHoveredPort(PortPosition port) {
+    if (hoveredPort_ != port) {
+        hoveredPort_ = port;
+        update();
+    }
+}
+
+void RectangleElement::hoverEnterEvent(QGraphicsSceneHoverEvent *event) {
+    isHovered_ = true;
+    hoveredPort_ = portAt(event->pos());
+    update();
+    ShapeElement::hoverEnterEvent(event);
+}
+
+void RectangleElement::hoverMoveEvent(QGraphicsSceneHoverEvent *event) {
+    PortPosition p = portAt(event->pos());
+    if (p != hoveredPort_) {
+        hoveredPort_ = p;
+        update();
+    }
+    ShapeElement::hoverMoveEvent(event);
+}
+
+void RectangleElement::hoverLeaveEvent(QGraphicsSceneHoverEvent *event) {
+    isHovered_ = false;
+    hoveredPort_ = PortPosition::None;
+    update();
+    ShapeElement::hoverLeaveEvent(event);
+}
+
 void RectangleElement::drawShape(QPainter *painter) {
     painter->setRenderHint(QPainter::Antialiasing, true);
     if (rounding_ > 0.0) {
         painter->drawRoundedRect(rect_, rounding_, rounding_);
     } else {
         painter->drawRect(rect_);
+    }
+}
+
+void RectangleElement::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) {
+    // 1. Отрисовка базовой фигуры и хэндлов изменения размера
+    ShapeElement::paint(painter, option, widget);
+
+    // 2. Отрисовка портов подключения (когда курсор над фигурой или фигура выбрана)
+    if (isHovered_ || isSelected()) {
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+
+        const PortPosition ports[] = {
+            PortPosition::Top,
+            PortPosition::Right,
+            PortPosition::Bottom,
+            PortPosition::Left
+        };
+
+        for (PortPosition p : ports) {
+            QPointF center = portLocalPos(p);
+            bool isCurrent = (p == hoveredPort_);
+
+            qreal r = isCurrent ? 4.5 : 3.5;
+            QPen portPen(isCurrent ? QColor(37, 99, 235) : QColor(100, 116, 139), isCurrent ? 1.5 : 1.0);
+            portPen.setCosmetic(true);
+
+            painter->setPen(portPen);
+            painter->setBrush(isCurrent ? QColor(59, 130, 246) : Qt::white);
+            painter->drawEllipse(center, r, r);
+        }
+
+        painter->restore();
     }
 }
 
@@ -106,6 +229,7 @@ void RectangleElement::moveHandle(ResizeHandle handle, const QPointF &currentSce
     setPos(sceneLeft, sceneTop);
     rect_ = QRectF(0, 0, sceneRight - sceneLeft, sceneBottom - sceneTop);
     update();
+    emit geometryChanged();
 }
 
 } // namespace editor

@@ -2,9 +2,12 @@
 
 #include "src/elements/elementtype.h"
 #include "src/elements/shapeelement.h"
+#include "src/elements/rectangleelement.h"
+#include "src/elements/lineelement.h"
 
 #include <QGraphicsScene>
 #include <QList>
+#include <QRectF>
 
 namespace editor {
 
@@ -46,6 +49,11 @@ public:
     void deleteSelectedElements();
     void clearAll();
 
+    // Маршрутизация и обновление связанных линий
+    QList<QRectF> obstacleRects(const QGraphicsItem *exclude1 = nullptr, const QGraphicsItem *exclude2 = nullptr) const;
+    void updateConnectedLines(RectangleElement *rect);
+    QPair<RectangleElement*, PortPosition> findPortAt(const QPointF &scenePos, RectangleElement *exclude = nullptr) const;
+
 signals:
     void elementAdded(ShapeElement *element);
     void elementRemoved(ShapeElement *element);
@@ -68,9 +76,19 @@ private:
     PageFormat pageFormat_ = PageFormat::Infinite;
 
     ElementType activeTool_ = ElementType::None;
+
     bool isCreating_ = false;
     QPointF createStartPos_;
     ShapeElement *currentCreatingElement_ = nullptr;
+
+    // Режим ведения линии от порта прямоугольника
+    bool isConnectingFromPort_ = false;
+    RectangleElement *connectStartRect_ = nullptr;
+    PortPosition connectStartPort_ = PortPosition::None;
+    LineElement *currentCreatingLine_ = nullptr;
+
+    RectangleElement *lastHoveredRect_ = nullptr;
+    PortPosition lastHoveredPort_ = PortPosition::None;
 
     quint32 nextElementId_ = 1;
     quint32 rectangleCount_ = 0;

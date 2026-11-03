@@ -94,6 +94,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Центральный холст
     scene_ = new CanvasScene(this);
+    pages_.append({QStringLiteral("Страница 1"), scene_});
     view_ = new CanvasView(scene_, this);
     tabWidget_ = new CanvasTabWidget(view_, this);
     ui->centralLayout->addWidget(tabWidget_);
@@ -103,20 +104,70 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Сигналы и действия из ui
     setupUiConnections();
+    connectScene(scene_);
 
     // Применение нейтральной приглушенной серой темы
     applyStrictMinimalistTheme();
-
-    connect(scene_, &CanvasScene::activeToolChanged, this, &MainWindow::onToolChanged);
-
-    // Демонстрационные элементы по центру: прямоугольник с маркерами и линия
-    initSampleElements();
 
     updateWindowTitle();
 }
 
 MainWindow::~MainWindow() {
     delete ui;
+}
+
+void MainWindow::connectScene(CanvasScene *scene) {
+    if (!scene) return;
+    connect(scene, &CanvasScene::activeToolChanged, this, &MainWindow::onToolChanged);
+    connect(scene, &CanvasScene::gridSizeChanged, this, [this](qreal size) {
+        if (comboGridStep_) {
+            int idx = comboGridStep_->findData(size);
+            if (idx >= 0) comboGridStep_->setCurrentIndex(idx);
+        }
+    });
+}
+
+void MainWindow::onPageChanged(int index) {
+    if (index < 0 || index >= pages_.size() || index == activePageIndex_) return;
+
+    if (scene_) {
+        disconnect(scene_, nullptr, this, nullptr);
+    }
+
+    activePageIndex_ = index;
+    scene_ = pages_[index].scene;
+
+    view_->setScene(scene_);
+    connectScene(scene_);
+
+    if (elementsDock_) elementsDock_->setScene(scene_);
+    if (libraryDock_) libraryDock_->setScene(scene_);
+    if (propertyDock_) propertyDock_->setScene(scene_);
+
+    if (ui->actionGrid) ui->actionGrid->setChecked(scene_->isGridVisible());
+    if (ui->actionShowGrid) ui->actionShowGrid->setChecked(scene_->isGridVisible());
+    if (ui->actionSnap) ui->actionSnap->setChecked(scene_->isSnapToGrid());
+    if (ui->actionSnapToGrid) ui->actionSnapToGrid->setChecked(scene_->isSnapToGrid());
+    if (comboGridStep_) {
+        int idx = comboGridStep_->findData(scene_->gridSize());
+        if (idx >= 0) comboGridStep_->setCurrentIndex(idx);
+    }
+    view_->update();
+}
+
+void MainWindow::onAddPage() {
+    auto newScene = new CanvasScene(this);
+    if (scene_) {
+        newScene->setGridSize(scene_->gridSize());
+        newScene->setGridVisible(scene_->isGridVisible());
+        newScene->setSnapToGrid(scene_->isSnapToGrid());
+        newScene->setPageFormat(scene_->pageFormat());
+    }
+
+    int pageNum = pages_.size() + 1;
+    pages_.append({QStringLiteral("Страница %1").arg(pageNum), newScene});
+
+    onPageChanged(pages_.size() - 1);
 }
 
 void MainWindow::updateWindowTitle() {
@@ -213,8 +264,14 @@ void MainWindow::setupUiConnections() {
     connect(ui->actionSaveAs, &QAction::triggered, this, &MainWindow::onSaveProjectAs);
     connect(ui->actionExit, &QAction::triggered, this, &QWidget::close);
 
+    // Страницы
+    connect(tabWidget_, &CanvasTabWidget::pageAdded, this, &MainWindow::onAddPage);
+    connect(tabWidget_, &CanvasTabWidget::pageChanged, this, &MainWindow::onPageChanged);
+
     // Правка
-    connect(ui->actionDelete, &QAction::triggered, scene_, &CanvasScene::deleteSelectedElements);
+    connect(ui->actionDelete, &QAction::triggered, this, [this]() {
+        if (scene_) scene_->deleteSelectedElements();
+    });
 
     // Выбор
     toolActionGroup_ = new QActionGroup(this);
@@ -222,19 +279,23 @@ void MainWindow::setupUiConnections() {
     toolActionGroup_->addAction(ui->actionSelect);
     ui->actionSelect->setChecked(true);
     connect(ui->actionSelect, &QAction::triggered, this, [this]() {
-        scene_->setActiveTool(ElementType::None);
+        if (scene_) scene_->setActiveTool(ElementType::None);
     });
 
     // Сетка и привязка
     ui->actionGrid->setChecked(scene_->isGridVisible());
     ui->actionShowGrid->setChecked(scene_->isGridVisible());
-    connect(ui->actionGrid, &QAction::toggled, scene_, &CanvasScene::setGridVisible);
+    connect(ui->actionGrid, &QAction::toggled, this, [this](bool v) {
+        if (scene_) scene_->setGridVisible(v);
+    });
     connect(ui->actionShowGrid, &QAction::toggled, ui->actionGrid, &QAction::setChecked);
     connect(ui->actionGrid, &QAction::toggled, ui->actionShowGrid, &QAction::setChecked);
 
     ui->actionSnap->setChecked(scene_->isSnapToGrid());
     ui->actionSnapToGrid->setChecked(scene_->isSnapToGrid());
-    connect(ui->actionSnap, &QAction::toggled, scene_, &CanvasScene::setSnapToGrid);
+    connect(ui->actionSnap, &QAction::toggled, this, [this](bool v) {
+        if (scene_) scene_->setSnapToGrid(v);
+    });
     connect(ui->actionSnapToGrid, &QAction::toggled, ui->actionSnap, &QAction::setChecked);
     connect(ui->actionSnap, &QAction::toggled, ui->actionSnapToGrid, &QAction::setChecked);
 
@@ -252,30 +313,28 @@ void MainWindow::setupUiConnections() {
         "QComboBox QAbstractItemView { background-color: #ffffff; color: #1e293b; selection-background-color: #e2e8f0; selection-color: #0f172a; border: 1px solid #cbd5e1; }"
     ));
     connect(comboGridStep_, &QComboBox::currentIndexChanged, this, [this](int idx) {
-        qreal step = comboGridStep_->itemData(idx).toDouble();
-        scene_->setGridSize(step);
-    });
-    connect(scene_, &CanvasScene::gridSizeChanged, this, [this](qreal size) {
-        int idx = comboGridStep_->findData(size);
-        if (idx >= 0) comboGridStep_->setCurrentIndex(idx);
+        if (scene_ && comboGridStep_) {
+            qreal step = comboGridStep_->itemData(idx).toDouble();
+            scene_->setGridSize(step);
+        }
     });
     ui->mainToolBar->insertWidget(ui->actionSnap, comboGridStep_);
 
     // Шаг сетки в меню
-    connect(ui->actionGridStep10, &QAction::triggered, this, [this]() { scene_->setGridSize(10.0); });
-    connect(ui->actionGridStep20, &QAction::triggered, this, [this]() { scene_->setGridSize(20.0); });
-    connect(ui->actionGridStep50, &QAction::triggered, this, [this]() { scene_->setGridSize(50.0); });
+    connect(ui->actionGridStep10, &QAction::triggered, this, [this]() { if (scene_) scene_->setGridSize(10.0); });
+    connect(ui->actionGridStep20, &QAction::triggered, this, [this]() { if (scene_) scene_->setGridSize(20.0); });
+    connect(ui->actionGridStep50, &QAction::triggered, this, [this]() { if (scene_) scene_->setGridSize(50.0); });
     connect(ui->actionGridSettings, &QAction::triggered, this, &MainWindow::onGridSettings);
 
     // Формат листа
     connect(ui->actionPageA4Landscape, &QAction::triggered, this, [this]() {
-        scene_->setPageFormat(PageFormat::A4Landscape);
+        if (scene_) scene_->setPageFormat(PageFormat::A4Landscape);
     });
     connect(ui->actionPageA4Portrait, &QAction::triggered, this, [this]() {
-        scene_->setPageFormat(PageFormat::A4Portrait);
+        if (scene_) scene_->setPageFormat(PageFormat::A4Portrait);
     });
     connect(ui->actionPageInfinite, &QAction::triggered, this, [this]() {
-        scene_->setPageFormat(PageFormat::Infinite);
+        if (scene_) scene_->setPageFormat(PageFormat::Infinite);
     });
 
     // Масштаб
@@ -374,29 +433,6 @@ void MainWindow::createDockWindows() {
     ui->menuView->addAction(libraryDock_->toggleViewAction());
     ui->menuView->addAction(elementsDock_->toggleViewAction());
     ui->menuView->addAction(propertyDock_->toggleViewAction());
-}
-
-void MainWindow::initSampleElements() {
-    auto rect = new RectangleElement(1, QStringLiteral("Прямоугольник 1"), QUuid::createUuid());
-    rect->setPos(-70, -40);
-    rect->setRect(QRectF(0, 0, 140, 80));
-    rect->setFillColor(QColor(255, 255, 255));
-    rect->setBorderColor(QColor(51, 65, 85));
-    rect->setBorderWidth(1.5);
-    scene_->addItem(rect);
-    emit scene_->elementAdded(rect);
-
-    auto line = new LineElement(2, QStringLiteral("Линия 1"), QUuid::createUuid());
-    line->setPos(70, 0);
-    line->setP1(QPointF(0, 0));
-    line->setP2(QPointF(100, 50));
-    line->setBorderColor(QColor(51, 65, 85));
-    line->setBorderWidth(1.5);
-    line->setEndMarker(LineMarkerType::Arrow);
-    scene_->addItem(line);
-    emit scene_->elementAdded(line);
-
-    rect->setSelected(true);
 }
 
 void MainWindow::onNewProject() {

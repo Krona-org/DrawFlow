@@ -21,6 +21,8 @@ public:
     explicit WindowElementsFrame(CanvasScene *scene, QWidget *parent = nullptr);
     ~WindowElementsFrame() override;
 
+    void setScene(CanvasScene *scene);
+
 public slots:
     void refreshElementsList();
     void onSceneSelectionChanged();

@@ -1,6 +1,9 @@
 #pragma once
 
+#include "rectangleelement.h"
 #include "shapeelement.h"
+
+#include <QVector>
 
 namespace editor {
 
@@ -23,6 +26,22 @@ public:
 
     QPointF p2() const { return p2_; }
     void setP2(const QPointF &p);
+
+    // Точки маршрута для ортогональной линии
+    QVector<QPointF> points() const { return points_; }
+    void setPoints(const QVector<QPointF> &pts);
+
+    // Привязки к портам прямоугольников
+    void setStartConnection(RectangleElement *rect, PortPosition port);
+    RectangleElement* startRect() const { return startRect_; }
+    PortPosition startPort() const { return startPort_; }
+
+    void setEndConnection(RectangleElement *rect, PortPosition port);
+    RectangleElement* endRect() const { return endRect_; }
+    PortPosition endPort() const { return endPort_; }
+
+    bool isOrthogonal() const { return isOrthogonal_; }
+    void setOrthogonal(bool ortho) { isOrthogonal_ = ortho; update(); }
 
     LineMarkerType beginMarker() const { return beginMarker_; }
     void setBeginMarker(LineMarkerType marker);
@@ -47,9 +66,18 @@ private:
 
     QPointF p1_{0, 0};
     QPointF p2_{120, 60};
+    QVector<QPointF> points_;
+
+    RectangleElement *startRect_ = nullptr;
+    PortPosition startPort_ = PortPosition::None;
+
+    RectangleElement *endRect_ = nullptr;
+    PortPosition endPort_ = PortPosition::None;
+
+    bool isOrthogonal_ = true;
 
     LineMarkerType beginMarker_ = LineMarkerType::None;
-    LineMarkerType endMarker_ = LineMarkerType::None;
+    LineMarkerType endMarker_ = LineMarkerType::Arrow;
 
     QPointF initialP1_;
     QPointF initialP2_;

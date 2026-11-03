@@ -84,6 +84,7 @@ void CanvasTabWidget::onAddPageClicked() {
 
     currentPageIndex_ = pageButtons_.size() - 1;
     updatePageButtonsStyle();
+    emit pageAdded();
     emit pageChanged(currentPageIndex_);
 }
 

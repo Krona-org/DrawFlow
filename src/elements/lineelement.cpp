@@ -9,8 +9,12 @@ namespace editor {
 LineElement::LineElement(quint32 id, const QString &name, const QUuid &uid, QGraphicsItem *parent)
     : ShapeElement(id, name, uid, parent)
 {
-    borderColor_ = QColor(33, 37, 41);
+    borderColor_ = QColor(51, 65, 85);
     borderWidth_ = 2.0;
+    endMarker_ = LineMarkerType::Arrow;
+
+    points_.append(p1_);
+    points_.append(p2_);
     updateBounds();
 }
 
@@ -18,6 +22,12 @@ void LineElement::setP1(const QPointF &p) {
     if (p1_ != p) {
         prepareGeometryChange();
         p1_ = p;
+        if (!points_.isEmpty()) {
+            points_.first() = p;
+        } else {
+            points_.append(p);
+            points_.append(p2_);
+        }
         updateBounds();
         emit geometryChanged();
         emit propertyChanged();
@@ -28,10 +38,37 @@ void LineElement::setP2(const QPointF &p) {
     if (p2_ != p) {
         prepareGeometryChange();
         p2_ = p;
+        if (!points_.isEmpty()) {
+            points_.last() = p;
+        } else {
+            points_.append(p1_);
+            points_.append(p);
+        }
         updateBounds();
         emit geometryChanged();
         emit propertyChanged();
     }
+}
+
+void LineElement::setPoints(const QVector<QPointF> &pts) {
+    if (pts.size() < 2) return;
+    prepareGeometryChange();
+    points_ = pts;
+    p1_ = points_.first();
+    p2_ = points_.last();
+    updateBounds();
+    emit geometryChanged();
+    emit propertyChanged();
+}
+
+void LineElement::setStartConnection(RectangleElement *rect, PortPosition port) {
+    startRect_ = rect;
+    startPort_ = port;
+}
+
+void LineElement::setEndConnection(RectangleElement *rect, PortPosition port) {
+    endRect_ = rect;
+    endPort_ = port;
 }
 
 void LineElement::setBeginMarker(LineMarkerType marker) {
@@ -51,10 +88,22 @@ void LineElement::setEndMarker(LineMarkerType marker) {
 }
 
 void LineElement::updateBounds() {
-    qreal minX = qMin(p1_.x(), p2_.x());
-    qreal minY = qMin(p1_.y(), p2_.y());
-    qreal maxX = qMax(p1_.x(), p2_.x());
-    qreal maxY = qMax(p1_.y(), p2_.y());
+    if (points_.isEmpty()) {
+        points_.append(p1_);
+        points_.append(p2_);
+    }
+
+    qreal minX = points_[0].x();
+    qreal maxX = points_[0].x();
+    qreal minY = points_[0].y();
+    qreal maxY = points_[0].y();
+
+    for (const QPointF &pt : points_) {
+        minX = qMin(minX, pt.x());
+        maxX = qMax(maxX, pt.x());
+        minY = qMin(minY, pt.y());
+        maxY = qMax(maxY, pt.y());
+    }
 
     rect_ = QRectF(minX, minY, qMax(10.0, maxX - minX), qMax(10.0, maxY - minY));
     update();
@@ -78,12 +127,12 @@ ResizeHandle LineElement::handleAt(const QPointF &localPos) const {
         return ResizeHandle::None;
     }
 
-    QRectF hr1 = handleRect(ResizeHandle::Point1).adjusted(-3, -3, 3, 3);
+    QRectF hr1 = handleRect(ResizeHandle::Point1).adjusted(-4, -4, 4, 4);
     if (hr1.contains(localPos)) {
         return ResizeHandle::Point1;
     }
 
-    QRectF hr2 = handleRect(ResizeHandle::Point2).adjusted(-3, -3, 3, 3);
+    QRectF hr2 = handleRect(ResizeHandle::Point2).adjusted(-4, -4, 4, 4);
     if (hr2.contains(localPos)) {
         return ResizeHandle::Point2;
     }
@@ -100,36 +149,56 @@ void LineElement::startHandleDrag(ResizeHandle handle, const QPointF &startScene
 void LineElement::moveHandle(ResizeHandle handle, const QPointF &currentScenePos, bool snapToGrid, qreal gridSize) {
     prepareGeometryChange();
 
-    QPointF targetPt = currentScenePos;
+    QPointF targetPt = currentScenePos - pos();
     if (snapToGrid && gridSize > 1.0) {
         targetPt.setX(std::round(targetPt.x() / gridSize) * gridSize);
         targetPt.setY(std::round(targetPt.y() / gridSize) * gridSize);
     }
 
     if (handle == ResizeHandle::Point1) {
-        p1_ = targetPt - pos();
+        setP1(targetPt);
     } else if (handle == ResizeHandle::Point2) {
-        p2_ = targetPt - pos();
+        setP2(targetPt);
     }
-
-    updateBounds();
 }
 
 QRectF LineElement::boundingRect() const {
-    qreal extra = borderWidth_ + handleSize() + 20.0;
-    qreal minX = qMin(p1_.x(), p2_.x());
-    qreal minY = qMin(p1_.y(), p2_.y());
-    qreal maxX = qMax(p1_.x(), p2_.x());
-    qreal maxY = qMax(p1_.y(), p2_.y());
-    return QRectF(minX - extra, minY - extra, (maxX - minX) + 2 * extra, (maxY - minY) + 2 * extra);
+    qreal extra = borderWidth_ + handleSize() + 24.0;
+    if (points_.isEmpty()) {
+        return rect_.adjusted(-extra, -extra, extra, extra);
+    }
+
+    qreal minX = points_[0].x();
+    qreal maxX = points_[0].x();
+    qreal minY = points_[0].y();
+    qreal maxY = points_[0].y();
+
+    for (const QPointF &pt : points_) {
+        minX = qMin(minX, pt.x());
+        maxX = qMax(maxX, pt.x());
+        minY = qMin(minY, pt.y());
+        maxY = qMax(maxY, pt.y());
+    }
+
+    return QRectF(minX - extra, minY - extra, (maxX - minX) + 2.0 * extra, (maxY - minY) + 2.0 * extra);
 }
 
 QPainterPath LineElement::shape() const {
     QPainterPath path;
-    path.moveTo(p1_);
-    path.lineTo(p2_);
+    if (points_.size() >= 2) {
+        path.moveTo(points_[0]);
+        for (int i = 1; i < points_.size(); ++i) {
+            path.lineTo(points_[i]);
+        }
+    } else {
+        path.moveTo(p1_);
+        path.lineTo(p2_);
+    }
+
     QPainterPathStroker stroker;
-    stroker.setWidth(qMax(12.0, borderWidth_ + 8.0));
+    stroker.setWidth(qMax(14.0, borderWidth_ + 10.0));
+    stroker.setCapStyle(Qt::RoundCap);
+    stroker.setJoinStyle(Qt::RoundJoin);
     return stroker.createStroke(path);
 }
 
@@ -142,27 +211,38 @@ static void drawArrowHead(QPainter *painter, const QPointF &from, const QPointF 
     qreal angle = std::atan2(dy, dx);
     const qreal arrowAngle = M_PI / 6.0;
 
-    QPointF p1 = to - QPointF(size * std::cos(angle - arrowAngle), size * std::sin(angle - arrowAngle));
-    QPointF p2 = to - QPointF(size * std::cos(angle + arrowAngle), size * std::sin(angle + arrowAngle));
+    QPointF pt1 = to - QPointF(size * std::cos(angle - arrowAngle), size * std::sin(angle - arrowAngle));
+    QPointF pt2 = to - QPointF(size * std::cos(angle + arrowAngle), size * std::sin(angle + arrowAngle));
 
     QPolygonF arrowPolygon;
-    arrowPolygon << to << p1 << p2;
+    arrowPolygon << to << pt1 << pt2;
     painter->drawPolygon(arrowPolygon);
 }
 
 void LineElement::drawShape(QPainter *painter) {
     painter->setRenderHint(QPainter::Antialiasing, true);
-    painter->drawLine(p1_, p2_);
 
-    qreal arrowSize = qMax(10.0, borderWidth_ * 4.0);
+    const auto &pts = (points_.size() >= 2) ? points_ : QVector<QPointF>{p1_, p2_};
 
-    if (beginMarker_ == LineMarkerType::Arrow) {
-        painter->setBrush(borderColor_);
-        drawArrowHead(painter, p2_, p1_, arrowSize);
+    QPen linePen(borderColor_, borderWidth_, borderStyle_, Qt::SquareCap, Qt::MiterJoin);
+    painter->setPen(linePen);
+    painter->setBrush(Qt::NoBrush);
+
+    for (int i = 0; i < pts.size() - 1; ++i) {
+        painter->drawLine(pts[i], pts[i + 1]);
     }
-    if (endMarker_ == LineMarkerType::Arrow) {
+
+    qreal arrowSize = qMax(9.0, borderWidth_ * 3.5);
+
+    if (beginMarker_ == LineMarkerType::Arrow && pts.size() >= 2) {
+        painter->setPen(Qt::NoPen);
         painter->setBrush(borderColor_);
-        drawArrowHead(painter, p1_, p2_, arrowSize);
+        drawArrowHead(painter, pts[1], pts[0], arrowSize);
+    }
+    if (endMarker_ == LineMarkerType::Arrow && pts.size() >= 2) {
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(borderColor_);
+        drawArrowHead(painter, pts[pts.size() - 2], pts.last(), arrowSize);
     }
 }
 
@@ -172,13 +252,11 @@ void LineElement::paint(QPainter *painter, const QStyleOptionGraphicsItem *optio
 
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
-    painter->setPen(QPen(borderColor_, borderWidth_, borderStyle_, Qt::RoundCap, Qt::RoundJoin));
-    painter->setBrush(Qt::NoBrush);
 
     drawShape(painter);
 
     if (isSelected()) {
-        QPen handlePen(QColor(37, 99, 235), 1.5);
+        QPen handlePen(QColor(71, 85, 105), 1.5);
         handlePen.setCosmetic(true);
         painter->setPen(handlePen);
         painter->setBrush(Qt::white);

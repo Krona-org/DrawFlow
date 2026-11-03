@@ -147,6 +147,19 @@ ElementsLibraryFrame::~ElementsLibraryFrame() {
     delete ui;
 }
 
+void ElementsLibraryFrame::setScene(CanvasScene *scene) {
+    if (scene_ != scene) {
+        if (scene_) {
+            disconnect(scene_, nullptr, this, nullptr);
+        }
+        scene_ = scene;
+        if (scene_) {
+            connect(scene_, &CanvasScene::activeToolChanged, this, &ElementsLibraryFrame::onToolChanged);
+            onToolChanged(scene_->activeTool());
+        }
+    }
+}
+
 void ElementsLibraryFrame::onToolChanged(ElementType tool) {
     if (rectCard_) rectCard_->setActive(tool == ElementType::Rectangle);
     if (lineCard_) lineCard_->setActive(tool == ElementType::Line);

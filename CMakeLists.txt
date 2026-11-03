@@ -43,6 +43,8 @@ set(SOURCES
     src/canvas/canvasview.cpp
     src/canvas/canvastabwidget.h
     src/canvas/canvastabwidget.cpp
+    src/canvas/orthogonalrouter.h
+    src/canvas/orthogonalrouter.cpp
 
     src/frames/elementslibraryframe.h
     src/frames/elementslibraryframe.cpp

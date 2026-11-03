@@ -48,6 +48,8 @@ public:
     explicit ElementsLibraryFrame(CanvasScene *scene, QWidget *parent = nullptr);
     ~ElementsLibraryFrame() override;
 
+    void setScene(CanvasScene *scene);
+
 public slots:
     void onToolChanged(ElementType tool);
 

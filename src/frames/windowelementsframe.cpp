@@ -35,6 +35,21 @@ WindowElementsFrame::~WindowElementsFrame() {
     delete ui;
 }
 
+void WindowElementsFrame::setScene(CanvasScene *scene) {
+    if (scene_ != scene) {
+        if (scene_) {
+            disconnect(scene_, nullptr, this, nullptr);
+        }
+        scene_ = scene;
+        if (scene_) {
+            connect(scene_, &CanvasScene::elementAdded, this, &WindowElementsFrame::refreshElementsList);
+            connect(scene_, &CanvasScene::elementRemoved, this, &WindowElementsFrame::refreshElementsList);
+            connect(scene_, &CanvasScene::sceneSelectionChanged, this, &WindowElementsFrame::onSceneSelectionChanged);
+        }
+        refreshElementsList();
+    }
+}
+
 void WindowElementsFrame::refreshElementsList() {
     isUpdatingSelection_ = true;
     ui->treeWidget->clear();

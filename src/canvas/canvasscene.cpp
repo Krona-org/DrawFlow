@@ -1,7 +1,5 @@
 #include "canvasscene.h"
-
-#include "src/elements/lineelement.h"
-#include "src/elements/rectangleelement.h"
+#include "orthogonalrouter.h"
 
 #include <QGraphicsSceneMouseEvent>
 #include <QKeyEvent>
@@ -60,9 +58,10 @@ QPointF CanvasScene::snapPoint(const QPointF &pt) const {
     if (!snapToGrid_ || gridSize_ <= 0.0) {
         return pt;
     }
-    qreal x = std::round(pt.x() / gridSize_) * gridSize_;
-    qreal y = std::round(pt.y() / gridSize_) * gridSize_;
-    return QPointF(x, y);
+    return QPointF(
+        std::round(pt.x() / gridSize_) * gridSize_,
+        std::round(pt.y() / gridSize_) * gridSize_
+    );
 }
 
 void CanvasScene::setActiveTool(ElementType tool) {
@@ -85,16 +84,80 @@ QList<ShapeElement*> CanvasScene::allElements() const {
 
 ShapeElement* CanvasScene::selectedElement() const {
     const auto sel = selectedItems();
-    for (QGraphicsItem *item : sel) {
-        if (auto shape = dynamic_cast<ShapeElement*>(item)) {
-            return shape;
-        }
+    if (!sel.isEmpty()) {
+        return dynamic_cast<ShapeElement*>(sel.first());
     }
     return nullptr;
 }
 
+QList<QRectF> CanvasScene::obstacleRects(const QGraphicsItem *exclude1, const QGraphicsItem *exclude2) const {
+    QList<QRectF> obstacles;
+    for (QGraphicsItem *item : items()) {
+        if (item == exclude1 || item == exclude2) continue;
+        if (auto rect = dynamic_cast<RectangleElement*>(item)) {
+            obstacles.append(rect->sceneBoundingRect());
+        }
+    }
+    return obstacles;
+}
+
+QPair<RectangleElement*, PortPosition> CanvasScene::findPortAt(const QPointF &scenePos, RectangleElement *exclude) const {
+    const auto hitItems = items(scenePos);
+    for (QGraphicsItem *item : hitItems) {
+        if (item == exclude) continue;
+        if (auto rect = dynamic_cast<RectangleElement*>(item)) {
+            QPointF localPos = rect->mapFromScene(scenePos);
+            PortPosition port = rect->portAt(localPos);
+            if (port != PortPosition::None) {
+                return {rect, port};
+            }
+        }
+    }
+
+    // Если прямо под курсором нет, ищем в радиусе 14px среди всех прямоугольников
+    for (QGraphicsItem *item : items()) {
+        if (item == exclude) continue;
+        if (auto rect = dynamic_cast<RectangleElement*>(item)) {
+            QPointF localPos = rect->mapFromScene(scenePos);
+            PortPosition port = rect->portAt(localPos);
+            if (port != PortPosition::None) {
+                return {rect, port};
+            }
+        }
+    }
+
+    return {nullptr, PortPosition::None};
+}
+
+void CanvasScene::updateConnectedLines(RectangleElement *rect) {
+    if (!rect) return;
+
+    for (QGraphicsItem *item : items()) {
+        if (auto line = dynamic_cast<LineElement*>(item)) {
+            if (line->startRect() == rect || line->endRect() == rect) {
+                QPointF startPt = line->p1();
+                QPointF startNorm(0, 0);
+                if (line->startRect()) {
+                    startPt = line->startRect()->portScenePos(line->startPort());
+                    startNorm = line->startRect()->portNormal(line->startPort());
+                }
+
+                QPointF endPt = line->p2();
+                QPointF endNorm(0, 0);
+                if (line->endRect()) {
+                    endPt = line->endRect()->portScenePos(line->endPort());
+                    endNorm = line->endRect()->portNormal(line->endPort());
+                }
+
+                auto obstacles = obstacleRects(line->startRect(), line->endRect());
+                QVector<QPointF> route = OrthogonalRouter::route(startPt, startNorm, endPt, endNorm, obstacles, 18.0);
+                line->setPoints(route);
+            }
+        }
+    }
+}
+
 ShapeElement* CanvasScene::addElementAt(ElementType type, const QPointF &scenePos) {
-    clearSelection();
     QPointF pos = snapPoint(scenePos);
 
     if (type == ElementType::Rectangle) {
@@ -111,9 +174,9 @@ ShapeElement* CanvasScene::addElementAt(ElementType type, const QPointF &scenePo
         lineCount_++;
         QString name = QStringLiteral("Линия %1").arg(lineCount_);
         auto lineItem = new LineElement(nextElementId_++, name, QUuid::createUuid());
-        lineItem->setPos(pos);
-        lineItem->setP1(QPointF(0, 0));
-        lineItem->setP2(QPointF(120, 60));
+        lineItem->setPos(0, 0);
+        lineItem->setP1(pos);
+        lineItem->setP2(pos + QPointF(120, 60));
         addItem(lineItem);
         lineItem->setSelected(true);
         emit elementAdded(lineItem);
@@ -141,7 +204,6 @@ void CanvasScene::clearAll() {
 }
 
 void CanvasScene::drawBackground(QPainter *painter, const QRectF &rect) {
-    // Чистый белый фон на всю рабочую область (в точности как в референсе Image 5)
     painter->fillRect(rect, Qt::white);
 
     if (!showGrid_ || gridSize_ <= 0.0) {
@@ -151,13 +213,10 @@ void CanvasScene::drawBackground(QPainter *painter, const QRectF &rect) {
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, false);
 
-    // Четкая и комфортная сетка:
-    // Тонкие ячейки: заметный, но мягкий тон
-    QPen minorPen(QColor(215, 220, 228), 1.0);
+    QPen minorPen(QColor(238, 240, 244), 1.0);
     minorPen.setCosmetic(true);
 
-    // Главные направляющие: более выразительные опорные линии
-    QPen majorPen(QColor(176, 186, 200), 1.0);
+    QPen majorPen(QColor(218, 222, 228), 1.0);
     majorPen.setCosmetic(true);
 
     const QTransform &transform = painter->worldTransform();
@@ -227,7 +286,6 @@ void CanvasScene::drawBackground(QPainter *painter, const QRectF &rect) {
         painter->drawLines(majorLines.constData(), majorLines.size());
     }
 
-    // Деликатная пунктирная граница формата листа (если выбран формат)
     QRectF pr = pageRect();
     if (pageFormat_ != PageFormat::Infinite && !pr.isEmpty()) {
         QPen pageBorderPen(QColor(190, 200, 215), 1.0, Qt::DashLine);
@@ -241,38 +299,107 @@ void CanvasScene::drawBackground(QPainter *painter, const QRectF &rect) {
 }
 
 void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
-    if (event->button() == Qt::LeftButton && activeTool_ != ElementType::None) {
-        clearSelection();
-        isCreating_ = true;
-        createStartPos_ = snapPoint(event->scenePos());
+    if (event->button() == Qt::LeftButton) {
+        // 1. Проверяем клик по порту подключения прямоугольника (даже при инструменте None / Выбор)
+        auto portMatch = findPortAt(event->scenePos());
+        if (portMatch.first != nullptr && portMatch.second != PortPosition::None) {
+            clearSelection();
+            isConnectingFromPort_ = true;
+            connectStartRect_ = portMatch.first;
+            connectStartPort_ = portMatch.second;
 
-        if (activeTool_ == ElementType::Rectangle) {
-            rectangleCount_++;
-            QString name = QStringLiteral("Прямоугольник %1").arg(rectangleCount_);
-            auto rectItem = new RectangleElement(nextElementId_++, name, QUuid::createUuid());
-            rectItem->setPos(createStartPos_);
-            rectItem->setRect(QRectF(0, 0, 1, 1));
-            addItem(rectItem);
-            currentCreatingElement_ = rectItem;
-        } else if (activeTool_ == ElementType::Line) {
             lineCount_++;
             QString name = QStringLiteral("Линия %1").arg(lineCount_);
-            auto lineItem = new LineElement(nextElementId_++, name, QUuid::createUuid());
-            lineItem->setPos(createStartPos_);
-            lineItem->setP1(QPointF(0, 0));
-            lineItem->setP2(QPointF(1, 1));
-            addItem(lineItem);
-            currentCreatingElement_ = lineItem;
+            currentCreatingLine_ = new LineElement(nextElementId_++, name, QUuid::createUuid());
+            currentCreatingLine_->setPos(0, 0);
+            currentCreatingLine_->setStartConnection(connectStartRect_, connectStartPort_);
+            currentCreatingLine_->setEndMarker(LineMarkerType::Arrow);
+
+            QPointF startPt = connectStartRect_->portScenePos(connectStartPort_);
+            QPointF norm = connectStartRect_->portNormal(connectStartPort_);
+            QVector<QPointF> initPts = { startPt, startPt + norm * 20.0 };
+            currentCreatingLine_->setPoints(initPts);
+
+            addItem(currentCreatingLine_);
+            event->accept();
+            return;
         }
 
-        event->accept();
-        return;
+        // 2. Обычное создание инструментами
+        if (activeTool_ != ElementType::None) {
+            clearSelection();
+            isCreating_ = true;
+            createStartPos_ = snapPoint(event->scenePos());
+
+            if (activeTool_ == ElementType::Rectangle) {
+                rectangleCount_++;
+                QString name = QStringLiteral("Прямоугольник %1").arg(rectangleCount_);
+                auto rectItem = new RectangleElement(nextElementId_++, name, QUuid::createUuid());
+                rectItem->setPos(createStartPos_);
+                rectItem->setRect(QRectF(0, 0, 1, 1));
+                addItem(rectItem);
+                currentCreatingElement_ = rectItem;
+            } else if (activeTool_ == ElementType::Line) {
+                lineCount_++;
+                QString name = QStringLiteral("Линия %1").arg(lineCount_);
+                auto lineItem = new LineElement(nextElementId_++, name, QUuid::createUuid());
+                lineItem->setPos(0, 0);
+                lineItem->setP1(createStartPos_);
+                lineItem->setP2(createStartPos_ + QPointF(1, 1));
+                addItem(lineItem);
+                currentCreatingElement_ = lineItem;
+            }
+
+            event->accept();
+            return;
+        }
     }
 
     QGraphicsScene::mousePressEvent(event);
 }
 
 void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
+    // А. Ведение линии от порта прямоугольника
+    if (isConnectingFromPort_ && currentCreatingLine_ != nullptr) {
+        QPointF curPos = event->scenePos();
+
+        // Проверяем привязку к порту другого прямоугольника
+        auto targetMatch = findPortAt(curPos, connectStartRect_);
+        QPointF targetPt = curPos;
+        QPointF targetNormal(0, 0);
+        RectangleElement *targetRect = targetMatch.first;
+        PortPosition targetPort = targetMatch.second;
+
+        if (targetRect && targetPort != PortPosition::None) {
+            targetPt = targetRect->portScenePos(targetPort);
+            targetNormal = targetRect->portNormal(targetPort);
+            targetRect->setHoveredPort(targetPort);
+            lastHoveredRect_ = targetRect;
+            lastHoveredPort_ = targetPort;
+        } else {
+            if (lastHoveredRect_) {
+                lastHoveredRect_->setHoveredPort(PortPosition::None);
+                lastHoveredRect_ = nullptr;
+                lastHoveredPort_ = PortPosition::None;
+            }
+            if (snapToGrid_ && gridSize_ > 1.0) {
+                targetPt = snapPoint(targetPt);
+            }
+        }
+
+        QPointF startPt = connectStartRect_->portScenePos(connectStartPort_);
+        QPointF startNorm = connectStartRect_->portNormal(connectStartPort_);
+
+        auto obstacles = obstacleRects(connectStartRect_, targetRect);
+        QVector<QPointF> route = OrthogonalRouter::route(startPt, startNorm, targetPt, targetNormal, obstacles, 18.0);
+        currentCreatingLine_->setPoints(route);
+        currentCreatingLine_->setEndConnection(targetRect, targetPort);
+
+        event->accept();
+        return;
+    }
+
+    // Б. Создание элементов через перетаскивание
     if (isCreating_ && currentCreatingElement_ != nullptr) {
         QPointF curPos = snapPoint(event->scenePos());
         QPointF delta = curPos - createStartPos_;
@@ -285,7 +412,7 @@ void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
             rectItem->setPos(x, y);
             rectItem->setRect(QRectF(0, 0, qMax(10.0, w), qMax(10.0, h)));
         } else if (auto lineItem = dynamic_cast<LineElement*>(currentCreatingElement_)) {
-            lineItem->setP2(delta);
+            lineItem->setP2(curPos);
         }
 
         event->accept();
@@ -293,9 +420,42 @@ void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
     }
 
     QGraphicsScene::mouseMoveEvent(event);
+
+    // Если перемещается выбранный прямоугольник, обновляем связанные линии
+    auto sel = selectedElement();
+    if (sel && sel->elementType() == ElementType::Rectangle) {
+        updateConnectedLines(dynamic_cast<RectangleElement*>(sel));
+    }
 }
 
 void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
+    // Завершение ведения линии от порта
+    if (isConnectingFromPort_ && currentCreatingLine_ != nullptr) {
+        isConnectingFromPort_ = false;
+
+        if (lastHoveredRect_) {
+            lastHoveredRect_->setHoveredPort(PortPosition::None);
+            lastHoveredRect_ = nullptr;
+            lastHoveredPort_ = PortPosition::None;
+        }
+
+        if (currentCreatingLine_->points().size() >= 2) {
+            currentCreatingLine_->setSelected(true);
+            emit elementAdded(currentCreatingLine_);
+        } else {
+            removeItem(currentCreatingLine_);
+            delete currentCreatingLine_;
+        }
+
+        currentCreatingLine_ = nullptr;
+        connectStartRect_ = nullptr;
+        connectStartPort_ = PortPosition::None;
+
+        event->accept();
+        return;
+    }
+
+    // Завершение создания элемента
     if (isCreating_ && currentCreatingElement_ != nullptr) {
         isCreating_ = false;
 
@@ -305,7 +465,7 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
             }
         } else if (auto lineItem = dynamic_cast<LineElement*>(currentCreatingElement_)) {
             if (QLineF(lineItem->p1(), lineItem->p2()).length() < 15.0) {
-                lineItem->setP2(QPointF(120, 60));
+                lineItem->setP2(lineItem->p1() + QPointF(120, 60));
             }
         }
 
@@ -320,6 +480,11 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
     }
 
     QGraphicsScene::mouseReleaseEvent(event);
+
+    auto sel = selectedElement();
+    if (sel && sel->elementType() == ElementType::Rectangle) {
+        updateConnectedLines(dynamic_cast<RectangleElement*>(sel));
+    }
 }
 
 void CanvasScene::keyPressEvent(QKeyEvent *event) {
@@ -329,17 +494,17 @@ void CanvasScene::keyPressEvent(QKeyEvent *event) {
         return;
     }
     if (event->key() == Qt::Key_Escape) {
-        if (activeTool_ != ElementType::None) {
-            setActiveTool(ElementType::None);
-            if (isCreating_ && currentCreatingElement_ != nullptr) {
-                removeItem(currentCreatingElement_);
-                currentCreatingElement_->deleteLater();
-                currentCreatingElement_ = nullptr;
-                isCreating_ = false;
-            }
-            event->accept();
-            return;
+        if (isConnectingFromPort_ && currentCreatingLine_ != nullptr) {
+            isConnectingFromPort_ = false;
+            removeItem(currentCreatingLine_);
+            delete currentCreatingLine_;
+            currentCreatingLine_ = nullptr;
+            connectStartRect_ = nullptr;
         }
+        setActiveTool(ElementType::None);
+        clearSelection();
+        event->accept();
+        return;
     }
     QGraphicsScene::keyPressEvent(event);
 }
