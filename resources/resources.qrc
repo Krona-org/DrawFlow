@@ -8,6 +8,9 @@
         <file>undo.svg</file>
         <file>redo.svg</file>
         <file>select.svg</file>
+        <file>copy.svg</file>
+        <file>paste.svg</file>
+        <file>cut.svg</file>
         <file>hand.svg</file>
         <file>grid.svg</file>
         <file>snap.svg</file>

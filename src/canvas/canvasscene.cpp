@@ -8,6 +8,160 @@
 
 namespace editor {
 
+CanvasScene::SceneClipboard CanvasScene::s_clipboard_;
+
+bool CanvasScene::hasClipboardContent() {
+    return !s_clipboard_.rects.isEmpty() || !s_clipboard_.lines.isEmpty();
+}
+
+void CanvasScene::copySelection() {
+    const auto sel = selectedItems();
+    if (sel.isEmpty()) return;
+
+    s_clipboard_.rects.clear();
+    s_clipboard_.lines.clear();
+    s_clipboard_.pasteCount = 0;
+
+    for (QGraphicsItem *item : sel) {
+        if (auto rect = dynamic_cast<RectangleElement*>(item)) {
+            RectangleClipboardData data;
+            data.originalId = rect->id();
+            data.originalPtr = rect;
+            data.name = rect->name();
+            data.pos = rect->pos();
+            data.rect = rect->rect();
+            data.rounding = rect->rounding();
+            data.borderColor = rect->borderColor();
+            data.borderWidth = rect->borderWidth();
+            data.borderStyle = rect->borderStyle();
+            data.fillColor = rect->fillColor();
+            data.fillStyle = rect->fillStyle();
+            data.zValue = rect->zValue();
+            s_clipboard_.rects.append(data);
+        } else if (auto line = dynamic_cast<LineElement*>(item)) {
+            LineClipboardData data;
+            data.originalId = line->id();
+            data.name = line->name();
+            data.pos = line->pos();
+            data.p1 = line->p1();
+            data.p2 = line->p2();
+            data.points = line->points();
+            data.startRect = line->startRect();
+            data.startPort = line->startPort();
+            data.endRect = line->endRect();
+            data.endPort = line->endPort();
+            data.isOrthogonal = line->isOrthogonal();
+            data.beginMarker = line->beginMarker();
+            data.endMarker = line->endMarker();
+            data.borderColor = line->borderColor();
+            data.borderWidth = line->borderWidth();
+            data.borderStyle = line->borderStyle();
+            data.zValue = line->zValue();
+            s_clipboard_.lines.append(data);
+        }
+    }
+}
+
+void CanvasScene::cutSelection() {
+    copySelection();
+    deleteSelectedElements();
+}
+
+void CanvasScene::pasteClipboard() {
+    if (!hasClipboardContent()) return;
+
+    s_clipboard_.pasteCount++;
+    qreal step = gridSize_ > 5.0 ? gridSize_ : 20.0;
+    qreal offsetVal = step * s_clipboard_.pasteCount;
+    QPointF offset(offsetVal, offsetVal);
+
+    clearSelection();
+
+    QHash<RectangleElement*, RectangleElement*> oldToNewRect;
+    QList<ShapeElement*> newElements;
+
+    // 1. Создаем копии прямоугольников
+    for (const auto &data : s_clipboard_.rects) {
+        rectangleCount_++;
+        QString name = QStringLiteral("Прямоугольник %1").arg(rectangleCount_);
+        auto newRect = new RectangleElement(nextElementId_++, name, QUuid::createUuid());
+        newRect->setPos(snapPoint(data.pos + offset));
+        newRect->setRect(data.rect);
+        newRect->setRounding(data.rounding);
+        newRect->setBorderColor(data.borderColor);
+        newRect->setBorderWidth(data.borderWidth);
+        newRect->setBorderStyle(data.borderStyle);
+        newRect->setFillColor(data.fillColor);
+        newRect->setFillStyle(data.fillStyle);
+        newRect->setZValue(data.zValue);
+
+        addItem(newRect);
+        oldToNewRect[data.originalPtr] = newRect;
+        newElements.append(newRect);
+    }
+
+    // 2. Создаем копии линий
+    for (const auto &data : s_clipboard_.lines) {
+        lineCount_++;
+        QString name = QStringLiteral("Линия %1").arg(lineCount_);
+        auto newLine = new LineElement(nextElementId_++, name, QUuid::createUuid());
+        newLine->setPos(snapPoint(data.pos + offset));
+        newLine->setP1(data.p1);
+        newLine->setP2(data.p2);
+
+        QVector<QPointF> newPts;
+        for (const QPointF &pt : data.points) {
+            newPts.append(pt + offset);
+        }
+        newLine->setPoints(newPts);
+
+        newLine->setBeginMarker(data.beginMarker);
+        newLine->setEndMarker(data.endMarker);
+        newLine->setBorderColor(data.borderColor);
+        newLine->setBorderWidth(data.borderWidth);
+        newLine->setBorderStyle(data.borderStyle);
+        newLine->setZValue(data.zValue);
+
+        // Восстанавливаем привязки, если соединенные прямоугольники также скопированы
+        RectangleElement *mappedStart = oldToNewRect.value(data.startRect, nullptr);
+        RectangleElement *mappedEnd = oldToNewRect.value(data.endRect, nullptr);
+
+        if (mappedStart) {
+            newLine->setStartConnection(mappedStart, data.startPort);
+        }
+        if (mappedEnd) {
+            newLine->setEndConnection(mappedEnd, data.endPort);
+        }
+
+        addItem(newLine);
+        newElements.append(newLine);
+    }
+
+    // 3. Выделяем все новые элементы и оповещаем систему
+    for (ShapeElement *elem : newElements) {
+        elem->setSelected(true);
+        emit elementAdded(elem);
+    }
+
+    // 4. Обновляем маршруты связанных линий
+    for (auto it = oldToNewRect.begin(); it != oldToNewRect.end(); ++it) {
+        updateConnectedLines(it.value());
+    }
+}
+
+void CanvasScene::duplicateSelection() {
+    copySelection();
+    pasteClipboard();
+}
+
+void CanvasScene::selectAllElements() {
+    for (QGraphicsItem *item : items()) {
+        if (auto shape = dynamic_cast<ShapeElement*>(item)) {
+            shape->setSelected(true);
+        }
+    }
+}
+
 CanvasScene::CanvasScene(QObject *parent)
     : QGraphicsScene(parent)
 {
@@ -516,6 +670,37 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
 }
 
 void CanvasScene::keyPressEvent(QKeyEvent *event) {
+    if (event->matches(QKeySequence::Copy) ||
+        (event->modifiers() & Qt::ControlModifier && (event->key() == Qt::Key_C || event->key() == Qt::Key_Insert))) {
+        copySelection();
+        event->accept();
+        return;
+    }
+    if (event->matches(QKeySequence::Paste) ||
+        (event->modifiers() & Qt::ControlModifier && event->key() == Qt::Key_V) ||
+        (event->modifiers() & Qt::ShiftModifier && event->key() == Qt::Key_Insert)) {
+        pasteClipboard();
+        event->accept();
+        return;
+    }
+    if (event->matches(QKeySequence::Cut) ||
+        (event->modifiers() & Qt::ControlModifier && event->key() == Qt::Key_X) ||
+        (event->modifiers() & Qt::ShiftModifier && event->key() == Qt::Key_Delete)) {
+        cutSelection();
+        event->accept();
+        return;
+    }
+    if (event->matches(QKeySequence::SelectAll) ||
+        (event->modifiers() & Qt::ControlModifier && event->key() == Qt::Key_A)) {
+        selectAllElements();
+        event->accept();
+        return;
+    }
+    if ((event->modifiers() & Qt::ControlModifier) && event->key() == Qt::Key_D) {
+        duplicateSelection();
+        event->accept();
+        return;
+    }
     if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
         deleteSelectedElements();
         event->accept();

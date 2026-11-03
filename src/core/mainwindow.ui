@@ -60,7 +60,13 @@
     <addaction name="actionUndo"/>
     <addaction name="actionRedo"/>
     <addaction name="separator"/>
+    <addaction name="actionCut"/>
+    <addaction name="actionCopy"/>
+    <addaction name="actionPaste"/>
+    <addaction name="actionDuplicate"/>
     <addaction name="actionDelete"/>
+    <addaction name="separator"/>
+    <addaction name="actionSelectAll"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -385,6 +391,73 @@
   <action name="actionAbout">
    <property name="text">
     <string>О программе...</string>
+   </property>
+  </action>
+  <action name="actionCut">
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/cut.svg</normaloff>:/cut.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Вырезать</string>
+   </property>
+   <property name="toolTip">
+    <string>Вырезать в буфер обмена (Ctrl+X)</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+X</string>
+   </property>
+  </action>
+  <action name="actionCopy">
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/copy.svg</normaloff>:/copy.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Копировать</string>
+   </property>
+   <property name="toolTip">
+    <string>Копировать в буфер обмена (Ctrl+C)</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+C</string>
+   </property>
+  </action>
+  <action name="actionPaste">
+   <property name="icon">
+    <iconset resource="../../resources/resources.qrc">
+     <normaloff>:/paste.svg</normaloff>:/paste.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Вставить</string>
+   </property>
+   <property name="toolTip">
+    <string>Вставить из буфера обмена (Ctrl+V)</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+V</string>
+   </property>
+  </action>
+  <action name="actionDuplicate">
+   <property name="text">
+    <string>Дублировать</string>
+   </property>
+   <property name="toolTip">
+    <string>Дублировать выделенные элементы (Ctrl+D)</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+D</string>
+   </property>
+  </action>
+  <action name="actionSelectAll">
+   <property name="text">
+    <string>Выделить всё</string>
+   </property>
+   <property name="toolTip">
+    <string>Выделить все элементы (Ctrl+A)</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+A</string>
    </property>
   </action>
  </widget>

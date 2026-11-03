@@ -269,6 +269,21 @@ void MainWindow::setupUiConnections() {
     connect(tabWidget_, &CanvasTabWidget::pageChanged, this, &MainWindow::onPageChanged);
 
     // Правка
+    connect(ui->actionCut, &QAction::triggered, this, [this]() {
+        if (scene_) scene_->cutSelection();
+    });
+    connect(ui->actionCopy, &QAction::triggered, this, [this]() {
+        if (scene_) scene_->copySelection();
+    });
+    connect(ui->actionPaste, &QAction::triggered, this, [this]() {
+        if (scene_) scene_->pasteClipboard();
+    });
+    connect(ui->actionDuplicate, &QAction::triggered, this, [this]() {
+        if (scene_) scene_->duplicateSelection();
+    });
+    connect(ui->actionSelectAll, &QAction::triggered, this, [this]() {
+        if (scene_) scene_->selectAllElements();
+    });
     connect(ui->actionDelete, &QAction::triggered, this, [this]() {
         if (scene_) scene_->deleteSelectedElements();
     });

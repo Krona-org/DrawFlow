@@ -49,6 +49,14 @@ public:
     void deleteSelectedElements();
     void clearAll();
 
+    // Буфер обмена (Copy / Cut / Paste / Duplicate / Select All)
+    void copySelection();
+    void cutSelection();
+    void pasteClipboard();
+    void duplicateSelection();
+    void selectAllElements();
+    static bool hasClipboardContent();
+
     // Маршрутизация и обновление связанных линий
     QList<QRectF> obstacleRects(const QGraphicsItem *exclude1 = nullptr, const QGraphicsItem *exclude2 = nullptr) const;
     void updateConnectedLines(RectangleElement *rect);
@@ -90,6 +98,49 @@ private:
 
     RectangleElement *lastHoveredRect_ = nullptr;
     PortPosition lastHoveredPort_ = PortPosition::None;
+
+    struct RectangleClipboardData {
+        quint32 originalId = 0;
+        RectangleElement *originalPtr = nullptr;
+        QString name;
+        QPointF pos;
+        QRectF rect;
+        qreal rounding = 0.0;
+        QColor borderColor;
+        qreal borderWidth = 1.5;
+        Qt::PenStyle borderStyle = Qt::SolidLine;
+        QColor fillColor;
+        Qt::BrushStyle fillStyle = Qt::SolidPattern;
+        qreal zValue = 0.0;
+    };
+
+    struct LineClipboardData {
+        quint32 originalId = 0;
+        QString name;
+        QPointF pos;
+        QPointF p1;
+        QPointF p2;
+        QVector<QPointF> points;
+        RectangleElement *startRect = nullptr;
+        PortPosition startPort = PortPosition::None;
+        RectangleElement *endRect = nullptr;
+        PortPosition endPort = PortPosition::None;
+        bool isOrthogonal = true;
+        LineMarkerType beginMarker = LineMarkerType::None;
+        LineMarkerType endMarker = LineMarkerType::Arrow;
+        QColor borderColor;
+        qreal borderWidth = 2.0;
+        Qt::PenStyle borderStyle = Qt::SolidLine;
+        qreal zValue = 0.0;
+    };
+
+    struct SceneClipboard {
+        QList<RectangleClipboardData> rects;
+        QList<LineClipboardData> lines;
+        int pasteCount = 0;
+    };
+
+    static SceneClipboard s_clipboard_;
 
     quint32 nextElementId_ = 1;
     quint32 rectangleCount_ = 0;
