@@ -498,9 +498,34 @@ void CanvasScene::drawBackground(QPainter *painter, const QRectF &rect) {
 
 void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
     if (event->button() == Qt::LeftButton) {
-        // 1. Проверяем клик по порту подключения прямоугольника (даже при инструменте None / Выбор)
-        auto portMatch = findPortAt(event->scenePos(), nullptr, 18.0);
-        if (portMatch.first != nullptr && portMatch.second != PortPosition::None) {
+        // 1. Проверяем клик по маркеру трансформации уже выбранного элемента
+        for (QGraphicsItem *selItem : selectedItems()) {
+            if (auto shape = dynamic_cast<ShapeElement*>(selItem)) {
+                QPointF localPos = shape->mapFromScene(event->scenePos());
+                ResizeHandle h = shape->handleAt(localPos);
+                if (h != ResizeHandle::None) {
+                    preResizeShape_ = shape;
+                    if (auto rect = dynamic_cast<RectangleElement*>(shape)) {
+                        preResizePos_ = rect->pos();
+                        preResizeRect_ = rect->rect();
+                    } else if (auto line = dynamic_cast<LineElement*>(shape)) {
+                        preResizeP1_ = line->p1();
+                        preResizeP2_ = line->p2();
+                        preResizePoints_ = line->points();
+                    }
+                    preMovePositions_.clear();
+
+                    QGraphicsScene::mousePressEvent(event);
+                    event->accept();
+                    return;
+                }
+            }
+        }
+
+        // 2. Ведение линии от порта прямоугольника:
+        // Срабатывает только при наведении на порт невыделенного объекта
+        auto portMatch = findPortAt(event->scenePos(), nullptr, 14.0);
+        if (portMatch.first != nullptr && portMatch.second != PortPosition::None && !portMatch.first->isSelected()) {
             clearSelection();
             isConnectingFromPort_ = true;
             connectStartRect_ = portMatch.first;
@@ -526,7 +551,7 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
             return;
         }
 
-        // 2. Обычное создание инструментами
+        // 3. Обычное создание инструментами
         if (activeTool_ != ElementType::None) {
             clearSelection();
             isCreating_ = true;

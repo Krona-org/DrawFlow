@@ -199,7 +199,12 @@ QPainterPath LineElement::shape() const {
     stroker.setWidth(qMax(14.0, borderWidth_ + 10.0));
     stroker.setCapStyle(Qt::RoundCap);
     stroker.setJoinStyle(Qt::RoundJoin);
-    return stroker.createStroke(path);
+    QPainterPath stroke = stroker.createStroke(path);
+    if (isSelected()) {
+        stroke.addRect(handleRect(ResizeHandle::Point1).adjusted(-4, -4, 4, 4));
+        stroke.addRect(handleRect(ResizeHandle::Point2).adjusted(-4, -4, 4, 4));
+    }
+    return stroke;
 }
 
 static void drawArrowHead(QPainter *painter, const QPointF &from, const QPointF &to, qreal size) {

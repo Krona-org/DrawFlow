@@ -1,5 +1,6 @@
 #include "rectangleelement.h"
 
+#include <QCursor>
 #include <QGraphicsSceneHoverEvent>
 #include <QPainter>
 #include <cmath>
@@ -43,21 +44,19 @@ void RectangleElement::setRectSize(qreal w, qreal h) {
 }
 
 QPointF RectangleElement::portLocalPos(PortPosition port) const {
-    qreal w = rect_.width();
-    qreal h = rect_.height();
-
+    const QRectF r = rect_.normalized();
     switch (port) {
     case PortPosition::Top:
-        return QPointF(w * 0.5, 0.0);
+        return QPointF(r.center().x(), r.top());
     case PortPosition::Right:
-        return QPointF(w, h * 0.5);
+        return QPointF(r.right(), r.center().y());
     case PortPosition::Bottom:
-        return QPointF(w * 0.5, h);
+        return QPointF(r.center().x(), r.bottom());
     case PortPosition::Left:
-        return QPointF(0.0, h * 0.5);
+        return QPointF(r.left(), r.center().y());
     case PortPosition::None:
     default:
-        return QPointF(w * 0.5, h * 0.5);
+        return r.center();
     }
 }
 
@@ -119,15 +118,33 @@ void RectangleElement::setShowPortsAlways(bool show) {
 
 void RectangleElement::hoverEnterEvent(QGraphicsSceneHoverEvent *event) {
     isHovered_ = true;
-    hoveredPort_ = portAt(event->pos());
+    if (!isSelected()) {
+        hoveredPort_ = portAt(event->pos());
+        if (hoveredPort_ != PortPosition::None) {
+            setCursor(Qt::CrossCursor);
+        }
+    } else {
+        hoveredPort_ = PortPosition::None;
+    }
     update();
     ShapeElement::hoverEnterEvent(event);
 }
 
 void RectangleElement::hoverMoveEvent(QGraphicsSceneHoverEvent *event) {
+    if (isSelected()) {
+        hoveredPort_ = PortPosition::None;
+        ShapeElement::hoverMoveEvent(event);
+        return;
+    }
+
     PortPosition p = portAt(event->pos());
     if (p != hoveredPort_) {
         hoveredPort_ = p;
+        if (p != PortPosition::None) {
+            setCursor(Qt::CrossCursor);
+        } else {
+            setCursor(Qt::ArrowCursor);
+        }
         update();
     }
     ShapeElement::hoverMoveEvent(event);
@@ -136,6 +153,7 @@ void RectangleElement::hoverMoveEvent(QGraphicsSceneHoverEvent *event) {
 void RectangleElement::hoverLeaveEvent(QGraphicsSceneHoverEvent *event) {
     isHovered_ = false;
     hoveredPort_ = PortPosition::None;
+    setCursor(Qt::ArrowCursor);
     update();
     ShapeElement::hoverLeaveEvent(event);
 }
@@ -150,11 +168,13 @@ void RectangleElement::drawShape(QPainter *painter) {
 }
 
 void RectangleElement::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) {
-    // 1. Отрисовка базовой фигуры и хэндлов изменения размера
+    // 1. Отрисовка базовой фигуры и маркеров трансформации
     ShapeElement::paint(painter, option, widget);
 
-    // 2. Отрисовка портов подключения (когда курсор над фигурой, фигура выбрана или идет ведение линии)
-    if (showPortsAlways_ || isHovered_ || isSelected()) {
+    // 2. Отрисовка портов подключения:
+    // Показываются только когда наводим курсор на НЕВЫДЕЛЕННЫЙ объект или когда активно ведем линию (showPortsAlways_)
+    bool showPorts = showPortsAlways_ || (!isSelected() && isHovered_);
+    if (showPorts) {
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);
 
@@ -195,9 +215,9 @@ void RectangleElement::paint(QPainter *painter, const QStyleOptionGraphicsItem *
                     painter->drawEllipse(center, 1.8, 1.8);
                 }
             } else {
-                // Обычный режим выделения/наведения
-                qreal r = isCurrent ? 5.0 : 4.0;
-                QPen portPen(isCurrent ? QColor(37, 99, 235) : QColor(100, 116, 139), isCurrent ? 1.5 : 1.0);
+                // Обычный режим наведения курсора на невыделенный объект: изящные синие порты
+                qreal r = isCurrent ? 5.5 : 4.0;
+                QPen portPen(isCurrent ? QColor(37, 99, 235) : QColor(100, 116, 139), isCurrent ? 2.0 : 1.2);
                 portPen.setCosmetic(true);
 
                 painter->setPen(portPen);

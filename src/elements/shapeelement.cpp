@@ -17,6 +17,7 @@ ShapeElement::ShapeElement(quint32 id, const QString &name, const QUuid &uid, QG
     setFlags(QGraphicsItem::ItemIsSelectable |
              QGraphicsItem::ItemIsMovable |
              QGraphicsItem::ItemSendsGeometryChanges);
+    setAcceptHoverEvents(true);
 }
 
 void ShapeElement::setName(const QString &name) {
@@ -68,7 +69,7 @@ void ShapeElement::setFillStyle(Qt::BrushStyle style) {
 }
 
 qreal ShapeElement::handleSize() const {
-    return 8.0;
+    return 9.0;
 }
 
 QRectF ShapeElement::handleRect(ResizeHandle handle) const {
@@ -94,7 +95,6 @@ QRectF ShapeElement::handleRect(ResizeHandle handle) const {
     case ResizeHandle::Left:
         return QRectF(r.left() - half, r.center().y() - half, hs, hs);
     case ResizeHandle::Rotate:
-        return QRectF(r.center().x() - half, r.top() - half - 18.0, hs, hs);
     default:
         return QRectF();
     }
@@ -106,15 +106,14 @@ ResizeHandle ShapeElement::handleAt(const QPointF &localPos) const {
     }
 
     static const ResizeHandle handles[] = {
-        ResizeHandle::Rotate,
         ResizeHandle::TopLeft, ResizeHandle::Top, ResizeHandle::TopRight,
         ResizeHandle::Right, ResizeHandle::BottomRight, ResizeHandle::Bottom,
         ResizeHandle::BottomLeft, ResizeHandle::Left
     };
 
     for (ResizeHandle h : handles) {
-        // Добавим небольшой допуск в 2 пикселя для удобного клика
-        QRectF hr = handleRect(h).adjusted(-2, -2, 2, 2);
+        // Удобная зона захвата 17x17 пикселей
+        QRectF hr = handleRect(h).adjusted(-4, -4, 4, 4);
         if (hr.contains(localPos)) {
             return h;
         }
@@ -137,17 +136,36 @@ void ShapeElement::moveHandle(ResizeHandle handle, const QPointF &currentScenePo
 }
 
 QRectF ShapeElement::boundingRect() const {
-    qreal extra = borderWidth_ / 2.0 + handleSize() + 25.0;
+    qreal extra = borderWidth_ / 2.0 + handleSize() + 8.0;
     return rect_.normalized().adjusted(-extra, -extra, extra, extra);
 }
 
 QPainterPath ShapeElement::shape() const {
     QPainterPath path;
     path.addRect(rect_.normalized());
+    if (isSelected()) {
+        static const ResizeHandle handles[] = {
+            ResizeHandle::TopLeft, ResizeHandle::Top, ResizeHandle::TopRight,
+            ResizeHandle::Right, ResizeHandle::BottomRight, ResizeHandle::Bottom,
+            ResizeHandle::BottomLeft, ResizeHandle::Left
+        };
+        for (ResizeHandle h : handles) {
+            path.addRect(handleRect(h).adjusted(-4, -4, 4, 4));
+        }
+    }
     return path;
 }
 
 QVariant ShapeElement::itemChange(GraphicsItemChange change, const QVariant &value) {
+    if (change == ItemSelectedChange) {
+        bool willSelect = value.toBool();
+        if (willSelect && !isSelected()) {
+            baseZValue_ = zValue();
+            setZValue(baseZValue_ + 1000.0);
+        } else if (!willSelect && isSelected()) {
+            setZValue(baseZValue_);
+        }
+    }
     if (change == ItemPositionChange && scene()) {
         if (auto s = dynamic_cast<CanvasScene*>(scene())) {
             if (s->isSnapToGrid()) {
@@ -201,12 +219,6 @@ void ShapeElement::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
         for (ResizeHandle h : handles) {
             painter->drawRect(handleRect(h));
         }
-
-        // Маркер вращения
-        painter->setPen(QPen(QColor(37, 99, 235), 1.0, Qt::SolidLine));
-        painter->drawLine(QPointF(r.center().x(), r.top()), QPointF(r.center().x(), r.top() - 16.0));
-        painter->setPen(handlePen);
-        painter->drawEllipse(handleRect(ResizeHandle::Rotate));
     }
 
     painter->restore();
@@ -253,6 +265,45 @@ void ShapeElement::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
         return;
     }
     QGraphicsObject::mouseReleaseEvent(event);
+}
+
+void ShapeElement::hoverMoveEvent(QGraphicsSceneHoverEvent *event) {
+    if (isSelected()) {
+        ResizeHandle h = handleAt(event->pos());
+        switch (h) {
+        case ResizeHandle::TopLeft:
+        case ResizeHandle::BottomRight:
+            setCursor(Qt::SizeFDiagCursor);
+            break;
+        case ResizeHandle::TopRight:
+        case ResizeHandle::BottomLeft:
+            setCursor(Qt::SizeBDiagCursor);
+            break;
+        case ResizeHandle::Top:
+        case ResizeHandle::Bottom:
+            setCursor(Qt::SizeVerCursor);
+            break;
+        case ResizeHandle::Left:
+        case ResizeHandle::Right:
+            setCursor(Qt::SizeHorCursor);
+            break;
+        case ResizeHandle::Point1:
+        case ResizeHandle::Point2:
+            setCursor(Qt::CrossCursor);
+            break;
+        default:
+            setCursor(Qt::SizeAllCursor);
+            break;
+        }
+    } else {
+        setCursor(Qt::ArrowCursor);
+    }
+    QGraphicsObject::hoverMoveEvent(event);
+}
+
+void ShapeElement::hoverLeaveEvent(QGraphicsSceneHoverEvent *event) {
+    setCursor(Qt::ArrowCursor);
+    QGraphicsObject::hoverLeaveEvent(event);
 }
 
 } // namespace editor

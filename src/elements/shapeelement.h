@@ -81,6 +81,8 @@ protected:
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
     void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
+    void hoverMoveEvent(QGraphicsSceneHoverEvent *event) override;
+    void hoverLeaveEvent(QGraphicsSceneHoverEvent *event) override;
 
     quint32 id_ = 0;
     QString name_;
@@ -100,6 +102,7 @@ protected:
     QPointF initialPos_;
     QRectF initialRect_;
     bool isDraggingHandle_ = false;
+    qreal baseZValue_ = 0.0;
 };
 
 } // namespace editor
