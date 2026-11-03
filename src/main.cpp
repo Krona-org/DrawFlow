@@ -8,7 +8,7 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
 
     QApplication::setOrganizationName(QStringLiteral("TREI"));
-    QApplication::setApplicationName(QStringLiteral("DCS Editor"));
+    QApplication::setApplicationName(QStringLiteral("DrawFlow"));
 
     // Использовать чистый современный шрифт
     QFont font(QStringLiteral("Segoe UI"), 9);

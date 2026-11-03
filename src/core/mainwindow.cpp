@@ -120,7 +120,7 @@ MainWindow::~MainWindow() {
 }
 
 void MainWindow::updateWindowTitle() {
-    QString title = QStringLiteral("DCS Editor — %1").arg(projectName_);
+    QString title = QStringLiteral("DrawFlow — %1").arg(projectName_);
     if (!currentFilePath_.isEmpty()) {
         title += QStringLiteral(" [%1]").arg(currentFilePath_);
     }
@@ -414,7 +414,7 @@ void MainWindow::onNewProject() {
 
 void MainWindow::onOpenProject() {
     QString fileName = QFileDialog::getOpenFileName(this, QStringLiteral("Открыть схему"),
-                                                    QString(), QStringLiteral("Схемы DCS / XML (*.xml *.drawio);;Все файлы (*.*)"));
+                                                    QString(), QStringLiteral("Схемы DrawFlow / XML (*.xml *.drawio);;Все файлы (*.*)"));
     if (fileName.isEmpty()) {
         return;
     }
@@ -447,7 +447,7 @@ void MainWindow::onSaveProject() {
 void MainWindow::onSaveProjectAs() {
     QString defaultName = currentFilePath_.isEmpty() ? (projectName_ + QStringLiteral(".xml")) : currentFilePath_;
     QString fileName = QFileDialog::getSaveFileName(this, QStringLiteral("Сохранить схему как"),
-                                                    defaultName, QStringLiteral("Схемы DCS / XML (*.xml *.drawio);;Все файлы (*.*)"));
+                                                    defaultName, QStringLiteral("Схемы DrawFlow / XML (*.xml *.drawio);;Все файлы (*.*)"));
     if (fileName.isEmpty()) {
         return;
     }
@@ -475,8 +475,8 @@ void MainWindow::onGridSettings() {
 
 void MainWindow::onAbout() {
     QMessageBox::about(this, QStringLiteral("О программе"),
-                       QStringLiteral("<h3>DCS Editor</h3>"
-                                      "<p>Минималистичная среда редактирования схем.</p>"
+                       QStringLiteral("<h3>DrawFlow</h3>"
+                                      "<p>Минималистичная среда редактирования схем и диаграмм.</p>"
                                       "<p>Собрано с Qt <b>%1</b>.</p>")
                        .arg(QT_VERSION_STR));
 }

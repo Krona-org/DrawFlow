@@ -83,7 +83,7 @@ void ShapeCard::mouseMoveEvent(QMouseEvent *event) {
     auto mimeData = new QMimeData();
 
     QString typeStr = (type_ == ElementType::Rectangle) ? QStringLiteral("rectangle") : QStringLiteral("line");
-    mimeData->setData(QStringLiteral("application/x-dcs-element-type"), typeStr.toUtf8());
+    mimeData->setData(QStringLiteral("application/x-drawflow-element-type"), typeStr.toUtf8());
     drag->setMimeData(mimeData);
 
     QPixmap pixmap(56, 40);

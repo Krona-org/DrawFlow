@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(dcseditor_qt6 LANGUAGES CXX)
+project(DrawFlow LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -63,9 +63,9 @@ set(SOURCES
     resources/resources.qrc
 )
 
-add_executable(dcseditor_qt6 ${SOURCES})
+add_executable(drawflow ${SOURCES})
 
-target_link_libraries(dcseditor_qt6 PRIVATE
+target_link_libraries(drawflow PRIVATE
     Qt6::Core
     Qt6::Gui
     Qt6::Widgets

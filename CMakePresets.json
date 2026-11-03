@@ -4,7 +4,7 @@
     {
       "name": "qt6-debug",
       "displayName": "Qt 6.10.2 MinGW Debug",
-      "description": "Сборка dcseditor_qt6 с Ninja и Qt 6 MinGW (Debug)",
+      "description": "Сборка DrawFlow с Ninja и Qt 6 MinGW (Debug)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
@@ -19,7 +19,7 @@
     {
       "name": "qt6-release",
       "displayName": "Qt 6.10.2 MinGW Release",
-      "description": "Сборка dcseditor_qt6 с Ninja и Qt 6 MinGW (Release)",
+      "description": "Сборка DrawFlow с Ninja и Qt 6 MinGW (Release)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build-release",
       "cacheVariables": {

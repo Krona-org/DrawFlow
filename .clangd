@@ -21,7 +21,7 @@ CompileFlags:
     - -DNDEBUG
     - -Ic:/Users/marus/OneDrive/Desktop/editor_qt6
     - -Ic:/Users/marus/OneDrive/Desktop/editor_qt6/src
-    - -IC:/Users/marus/OneDrive/Desktop/editor_qt6/build-release/dcseditor_qt6_autogen/include
+    - -IC:/Users/marus/OneDrive/Desktop/editor_qt6/build-release/drawflow_autogen/include
     - -IC:/Users/marus/OneDrive/Desktop/editor_qt6
     - -isystem
     - C:/Qt/6.10.2/mingw_64/include/QtCore

@@ -108,8 +108,12 @@ void CanvasView::mouseReleaseEvent(QMouseEvent *event) {
     QGraphicsView::mouseReleaseEvent(event);
 }
 
+static const char *kMimeDrawFlow = "application/x-drawflow-element-type";
+static const char *kMimeDcsLegacy = "application/x-dcs-element-type";
+
 void CanvasView::dragEnterEvent(QDragEnterEvent *event) {
-    if (event->mimeData()->hasFormat(QStringLiteral("application/x-dcs-element-type"))) {
+    if (event->mimeData()->hasFormat(QLatin1String(kMimeDrawFlow)) ||
+        event->mimeData()->hasFormat(QLatin1String(kMimeDcsLegacy))) {
         event->acceptProposedAction();
     } else {
         event->ignore();
@@ -117,7 +121,8 @@ void CanvasView::dragEnterEvent(QDragEnterEvent *event) {
 }
 
 void CanvasView::dragMoveEvent(QDragMoveEvent *event) {
-    if (event->mimeData()->hasFormat(QStringLiteral("application/x-dcs-element-type"))) {
+    if (event->mimeData()->hasFormat(QLatin1String(kMimeDrawFlow)) ||
+        event->mimeData()->hasFormat(QLatin1String(kMimeDcsLegacy))) {
         event->acceptProposedAction();
     } else {
         event->ignore();
@@ -125,8 +130,15 @@ void CanvasView::dragMoveEvent(QDragMoveEvent *event) {
 }
 
 void CanvasView::dropEvent(QDropEvent *event) {
-    if (event->mimeData()->hasFormat(QStringLiteral("application/x-dcs-element-type"))) {
-        QByteArray data = event->mimeData()->data(QStringLiteral("application/x-dcs-element-type"));
+    QString format;
+    if (event->mimeData()->hasFormat(QLatin1String(kMimeDrawFlow))) {
+        format = QLatin1String(kMimeDrawFlow);
+    } else if (event->mimeData()->hasFormat(QLatin1String(kMimeDcsLegacy))) {
+        format = QLatin1String(kMimeDcsLegacy);
+    }
+
+    if (!format.isEmpty()) {
+        QByteArray data = event->mimeData()->data(format);
         QString typeStr = QString::fromUtf8(data);
 
         QPointF scenePos = mapToScene(event->position().toPoint());
