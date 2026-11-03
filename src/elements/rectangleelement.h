@@ -37,6 +37,9 @@ public:
     void setHoveredPort(PortPosition port);
     PortPosition hoveredPort() const { return hoveredPort_; }
 
+    void setShowPortsAlways(bool show);
+    bool showPortsAlways() const { return showPortsAlways_; }
+
     void startHandleDrag(ResizeHandle handle, const QPointF &startScenePos) override;
     void moveHandle(ResizeHandle handle, const QPointF &currentScenePos, bool snapToGrid = false, qreal gridSize = 20.0) override;
 
@@ -52,6 +55,7 @@ protected:
 private:
     qreal rounding_ = 0.0;
     bool isHovered_ = false;
+    bool showPortsAlways_ = false;
     PortPosition hoveredPort_ = PortPosition::None;
 };
 

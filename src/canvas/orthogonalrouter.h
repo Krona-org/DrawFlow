@@ -16,13 +16,23 @@ public:
         const QPointF &end,
         const QPointF &endNormal,
         const QList<QRectF> &obstacles,
-        qreal margin = 16.0
+        qreal margin = 20.0
     );
+
+    // Проверка пересечения ломаной линии с препятствиями
+    static bool pathIntersectsObstacles(const QVector<QPointF> &pts, const QList<QRectF> &obstacles);
+    static bool segmentIntersectsObstacles(const QPointF &p1, const QPointF &p2, const QList<QRectF> &obstacles);
 
 private:
     static QVector<QPointF> simplifyCollinear(const QVector<QPointF> &points);
-    static bool segmentIntersectsObstacles(const QPointF &p1, const QPointF &p2, const QList<QRectF> &obstacles);
+    static QVector<QPointF> tryIdealFormulaRoute(
+        const QPointF &start,
+        const QPointF &startNormal,
+        const QPointF &end,
+        const QPointF &endNormal,
+        const QList<QRectF> &obstacles,
+        qreal margin
+    );
 };
 
 } // namespace editor
-

@@ -18,8 +18,8 @@ bool OrthogonalRouter::segmentIntersectsObstacles(const QPointF &p1, const QPoin
     bool isVertical = std::abs(p1.x() - p2.x()) < 1e-4;
 
     for (const QRectF &obs : obstacles) {
-        // Уменьшаем препятствие на 1px для устойчивости к касаниям по границе
-        QRectF core = obs.adjusted(1.0, 1.0, -1.0, -1.0);
+        // Уменьшаем препятствие на 1.5px для исключения ложных касаний
+        QRectF core = obs.adjusted(1.5, 1.5, -1.5, -1.5);
         if (core.width() <= 0.0 || core.height() <= 0.0) continue;
 
         if (isHorizontal) {
@@ -35,10 +35,18 @@ bool OrthogonalRouter::segmentIntersectsObstacles(const QPointF &p1, const QPoin
                 }
             }
         } else {
-            // Диагональных отрезков в сетке нет, но на всякий случай
-            if (obs.intersects(QRectF(xMin, yMin, xMax - xMin, yMax - yMin))) {
+            if (obs.intersects(QRectF(xMin, yMin, qMax(1.0, xMax - xMin), qMax(1.0, yMax - yMin)))) {
                 return true;
             }
+        }
+    }
+    return false;
+}
+
+bool OrthogonalRouter::pathIntersectsObstacles(const QVector<QPointF> &pts, const QList<QRectF> &obstacles) {
+    for (int i = 0; i < pts.size() - 1; ++i) {
+        if (segmentIntersectsObstacles(pts[i], pts[i + 1], obstacles)) {
+            return true;
         }
     }
     return false;
@@ -55,6 +63,11 @@ QVector<QPointF> OrthogonalRouter::simplifyCollinear(const QVector<QPointF> &pts
         const QPointF &curr = pts[i];
         const QPointF &next = pts[i + 1];
 
+        // Пропускаем дубликаты
+        if (std::hypot(curr.x() - prev.x(), curr.y() - prev.y()) < 1e-3) {
+            continue;
+        }
+
         bool collinX = std::abs(prev.x() - curr.x()) < 1e-3 && std::abs(curr.x() - next.x()) < 1e-3;
         bool collinY = std::abs(prev.y() - curr.y()) < 1e-3 && std::abs(curr.y() - next.y()) < 1e-3;
 
@@ -63,8 +76,126 @@ QVector<QPointF> OrthogonalRouter::simplifyCollinear(const QVector<QPointF> &pts
         }
     }
 
-    result.append(pts.last());
+    if (result.isEmpty() || std::hypot(pts.last().x() - result.last().x(), pts.last().y() - result.last().y()) >= 1e-3) {
+        result.append(pts.last());
+    }
+
     return result;
+}
+
+QVector<QPointF> OrthogonalRouter::tryIdealFormulaRoute(
+    const QPointF &start,
+    const QPointF &startNormal,
+    const QPointF &end,
+    const QPointF &endNormal,
+    const QList<QRectF> &obstacles,
+    qreal margin
+) {
+    QPointF n1 = startNormal;
+    QPointF n2 = endNormal;
+
+    bool isH1 = std::abs(n1.x()) > 0.5;
+    bool isV1 = std::abs(n1.y()) > 0.5;
+    bool isH2 = std::abs(n2.x()) > 0.5;
+    bool isV2 = std::abs(n2.y()) > 0.5;
+
+    // СЛУЧАЙ 1: Оба порта горизонтальные (H-V-H Z-изгиб с вертикальной линией ровно посередине)
+    if (isH1 && isH2) {
+        // Противоположные направления (навстречу друг другу): Right -> Left
+        if (n1.x() > 0 && n2.x() < 0 && end.x() > start.x() + margin * 2.0) {
+            qreal midX = (start.x() + end.x()) * 0.5;
+            QVector<QPointF> cand = { start, QPointF(midX, start.y()), QPointF(midX, end.y()), end };
+            if (!pathIntersectsObstacles(cand, obstacles)) return cand;
+        }
+        // Противоположные направления (навстречу друг другу): Left -> Right
+        if (n1.x() < 0 && n2.x() > 0 && end.x() < start.x() - margin * 2.0) {
+            qreal midX = (start.x() + end.x()) * 0.5;
+            QVector<QPointF> cand = { start, QPointF(midX, start.y()), QPointF(midX, end.y()), end };
+            if (!pathIntersectsObstacles(cand, obstacles)) return cand;
+        }
+        // Одинаковые направления: оба выходят вправо
+        if (n1.x() > 0 && n2.x() > 0) {
+            qreal clearX = std::max(start.x(), end.x()) + margin * 1.5;
+            QVector<QPointF> cand = { start, QPointF(clearX, start.y()), QPointF(clearX, end.y()), end };
+            if (!pathIntersectsObstacles(cand, obstacles)) return cand;
+        }
+        // Одинаковые направления: оба выходят влево
+        if (n1.x() < 0 && n2.x() < 0) {
+            qreal clearX = std::min(start.x(), end.x()) - margin * 1.5;
+            QVector<QPointF> cand = { start, QPointF(clearX, start.y()), QPointF(clearX, end.y()), end };
+            if (!pathIntersectsObstacles(cand, obstacles)) return cand;
+        }
+    }
+
+    // СЛУЧАЙ 2: Оба порта вертикальные (V-H-V Z-изгиб с горизонтальной линией ровно посередине)
+    if (isV1 && isV2) {
+        // Навстречу: Down -> Up
+        if (n1.y() > 0 && n2.y() < 0 && end.y() > start.y() + margin * 2.0) {
+            qreal midY = (start.y() + end.y()) * 0.5;
+            QVector<QPointF> cand = { start, QPointF(start.x(), midY), QPointF(end.x(), midY), end };
+            if (!pathIntersectsObstacles(cand, obstacles)) return cand;
+        }
+        // Навстречу: Up -> Down
+        if (n1.y() < 0 && n2.y() > 0 && end.y() < start.y() - margin * 2.0) {
+            qreal midY = (start.y() + end.y()) * 0.5;
+            QVector<QPointF> cand = { start, QPointF(start.x(), midY), QPointF(end.x(), midY), end };
+            if (!pathIntersectsObstacles(cand, obstacles)) return cand;
+        }
+        // Одинаковые направления: оба вниз
+        if (n1.y() > 0 && n2.y() > 0) {
+            qreal clearY = std::max(start.y(), end.y()) + margin * 1.5;
+            QVector<QPointF> cand = { start, QPointF(start.x(), clearY), QPointF(end.x(), clearY), end };
+            if (!pathIntersectsObstacles(cand, obstacles)) return cand;
+        }
+        // Одинаковые направления: оба вверх
+        if (n1.y() < 0 && n2.y() < 0) {
+            qreal clearY = std::min(start.y(), end.y()) - margin * 1.5;
+            QVector<QPointF> cand = { start, QPointF(start.x(), clearY), QPointF(end.x(), clearY), end };
+            if (!pathIntersectsObstacles(cand, obstacles)) return cand;
+        }
+    }
+
+    // СЛУЧАЙ 3: Один горизонтальный, один вертикальный (L-изгиб под 90 градусов)
+    if (isH1 && isV2) {
+        // Проверяем возможность соединения прямым углом через точку (end.x, start.y)
+        bool canExitDirect = (end.x() - start.x()) * n1.x() > 0.0;
+        bool canEnterDirect = (start.y() - end.y()) * n2.y() > 0.0;
+
+        if (canExitDirect && canEnterDirect) {
+            QVector<QPointF> cand = { start, QPointF(end.x(), start.y()), end };
+            if (!pathIntersectsObstacles(cand, obstacles)) return cand;
+        }
+    }
+
+    if (isV1 && isH2) {
+        // Проверяем возможность соединения прямым углом через точку (start.x, end.y)
+        bool canExitDirect = (end.y() - start.y()) * n1.y() > 0.0;
+        bool canEnterDirect = (start.x() - end.x()) * n2.x() > 0.0;
+
+        if (canExitDirect && canEnterDirect) {
+            QVector<QPointF> cand = { start, QPointF(start.x(), end.y()), end };
+            if (!pathIntersectsObstacles(cand, obstacles)) return cand;
+        }
+    }
+
+    // СЛУЧАЙ 4: Конечный порт не зафиксирован (ведение линии мышью в пустую область)
+    if (isH1 && !isH2 && !isV2) {
+        if ((end.x() - start.x()) * n1.x() > margin) {
+            qreal midX = (start.x() + end.x()) * 0.5;
+            QVector<QPointF> cand = { start, QPointF(midX, start.y()), QPointF(midX, end.y()), end };
+            if (!pathIntersectsObstacles(cand, obstacles)) return cand;
+        }
+    }
+
+    if (isV1 && !isH2 && !isV2) {
+        if ((end.y() - start.y()) * n1.y() > margin) {
+            qreal midY = (start.y() + end.y()) * 0.5;
+            QVector<QPointF> cand = { start, QPointF(start.x(), midY), QPointF(end.x(), midY), end };
+            if (!pathIntersectsObstacles(cand, obstacles)) return cand;
+        }
+    }
+
+    return {};
 }
 
 QVector<QPointF> OrthogonalRouter::route(
@@ -75,7 +206,13 @@ QVector<QPointF> OrthogonalRouter::route(
     const QList<QRectF> &obstacles,
     qreal margin
 ) {
-    // Начальный и конечный выход с отступом в сторону нормали порта
+    // 1. Сначала пробуем идеальные формулы (H-V-H midpoint, V-H-V midpoint, L-изгиб)
+    QVector<QPointF> ideal = tryIdealFormulaRoute(start, startNormal, end, endNormal, obstacles, margin);
+    if (!ideal.isEmpty()) {
+        return simplifyCollinear(ideal);
+    }
+
+    // 2. Если идеальный путь перекрыт препятствиями, запускаем интеллектуальный A* поиск
     qreal startLen = std::hypot(startNormal.x(), startNormal.y());
     QPointF pStart = (startLen > 0.1) ? (start + startNormal * margin) : start;
 
@@ -86,17 +223,20 @@ QVector<QPointF> OrthogonalRouter::route(
     std::vector<qreal> xs;
     std::vector<qreal> ys;
 
+    qreal midX = (pStart.x() + pEnd.x()) * 0.5;
+    qreal midY = (pStart.y() + pEnd.y()) * 0.5;
+
     xs.push_back(start.x());
     xs.push_back(pStart.x());
     xs.push_back(end.x());
     xs.push_back(pEnd.x());
-    xs.push_back((pStart.x() + pEnd.x()) * 0.5);
+    xs.push_back(midX);
 
     ys.push_back(start.y());
     ys.push_back(pStart.y());
     ys.push_back(end.y());
     ys.push_back(pEnd.y());
-    ys.push_back((pStart.y() + pEnd.y()) * 0.5);
+    ys.push_back(midY);
 
     for (const QRectF &obs : obstacles) {
         xs.push_back(obs.left() - margin);
@@ -141,7 +281,6 @@ QVector<QPointF> OrthogonalRouter::route(
     int targetNode = findClosestNode(pEnd);
 
     // A* поиск по ортогональной сетке каналов
-    // Состояние: (nodeIndex, dir), где dir: 0 - none, 1 - horizontal, 2 - vertical
     struct State {
         int node;
         int dir;
@@ -154,8 +293,8 @@ QVector<QPointF> OrthogonalRouter::route(
     };
 
     std::priority_queue<State, std::vector<State>, std::greater<State>> openSet;
-    std::unordered_map<int, qreal> gScore; // key: node * 4 + dir
-    std::unordered_map<int, int> cameFrom; // key: node * 4 + dir -> prev_node * 4 + prev_dir
+    std::unordered_map<int, qreal> gScore;
+    std::unordered_map<int, int> cameFrom;
 
     auto encode = [](int node, int dir) { return node * 4 + dir; };
 
@@ -167,7 +306,7 @@ QVector<QPointF> OrthogonalRouter::route(
     int targetY = targetNode / W;
     QPointF targetPt(xs[targetX], ys[targetY]);
 
-    const qreal turnPenalty = 45.0; // Штраф за поворот для минимизации лишних изгибов
+    const qreal turnPenalty = 55.0; // Высокий штраф за поворот для предотвращения лишних изгибов
     int bestEndState = -1;
 
     while (!openSet.empty()) {
@@ -188,7 +327,6 @@ QVector<QPointF> OrthogonalRouter::route(
         int cy = current.node / W;
         QPointF cPos(xs[cx], ys[cy]);
 
-        // 4 ортогональных соседа: влево, вправо, вверх, вниз
         const int dx[4] = {-1, 1, 0, 0};
         const int dy[4] = {0, 0, -1, 1};
         const int dirs[4] = {1, 1, 2, 2}; // 1 = horiz, 2 = vert
@@ -201,14 +339,17 @@ QVector<QPointF> OrthogonalRouter::route(
 
             QPointF nPos(xs[nx], ys[ny]);
 
-            // Проверяем, не пересекает ли отрезок препятствия
             if (segmentIntersectsObstacles(cPos, nPos, obstacles)) {
                 continue;
             }
 
             qreal dist = std::hypot(nPos.x() - cPos.x(), nPos.y() - cPos.y());
             qreal extraTurn = (current.dir != 0 && current.dir != dirs[i]) ? turnPenalty : 0.0;
-            qreal tentG = current.cost + dist + extraTurn;
+
+            // Предпочтение центрированным каналам (midX / midY) для эстетики
+            qreal centerBonus = (std::abs(nPos.x() - midX) < 1.0 || std::abs(nPos.y() - midY) < 1.0) ? -10.0 : 0.0;
+
+            qreal tentG = current.cost + dist + extraTurn + centerBonus;
 
             int nNode = ny * W + nx;
             int nKey = encode(nNode, dirs[i]);
@@ -236,13 +377,12 @@ QVector<QPointF> OrthogonalRouter::route(
         int sY = startNode / W;
         path.prepend(QPointF(xs[sX], ys[sY]));
     } else {
-        // Запасной классический Z/L-маршрут при изоляции
         path.append(pStart);
-        path.append(QPointF(pEnd.x(), pStart.y()));
+        path.append(QPointF(midX, pStart.y()));
+        path.append(QPointF(midX, pEnd.y()));
         path.append(pEnd);
     }
 
-    // Добавляем точку старта и финиша
     if (path.isEmpty() || (path.first() - pStart).manhattanLength() > 1.0) {
         path.prepend(pStart);
     }
@@ -257,9 +397,7 @@ QVector<QPointF> OrthogonalRouter::route(
         path.append(end);
     }
 
-    // Упрощаем коллинеарные точки для строгого прямого 90-градусного вида
     return simplifyCollinear(path);
 }
 
 } // namespace editor
-

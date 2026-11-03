@@ -52,7 +52,8 @@ public:
     // Маршрутизация и обновление связанных линий
     QList<QRectF> obstacleRects(const QGraphicsItem *exclude1 = nullptr, const QGraphicsItem *exclude2 = nullptr) const;
     void updateConnectedLines(RectangleElement *rect);
-    QPair<RectangleElement*, PortPosition> findPortAt(const QPointF &scenePos, RectangleElement *exclude = nullptr) const;
+    QPair<RectangleElement*, PortPosition> findPortAt(const QPointF &scenePos, RectangleElement *exclude = nullptr, qreal maxDist = 24.0) const;
+    void setConnectingMode(bool connecting);
 
 signals:
     void elementAdded(ShapeElement *element);

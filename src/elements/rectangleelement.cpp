@@ -107,6 +107,16 @@ void RectangleElement::setHoveredPort(PortPosition port) {
     }
 }
 
+void RectangleElement::setShowPortsAlways(bool show) {
+    if (showPortsAlways_ != show) {
+        showPortsAlways_ = show;
+        if (!show) {
+            hoveredPort_ = PortPosition::None;
+        }
+        update();
+    }
+}
+
 void RectangleElement::hoverEnterEvent(QGraphicsSceneHoverEvent *event) {
     isHovered_ = true;
     hoveredPort_ = portAt(event->pos());
@@ -143,8 +153,8 @@ void RectangleElement::paint(QPainter *painter, const QStyleOptionGraphicsItem *
     // 1. Отрисовка базовой фигуры и хэндлов изменения размера
     ShapeElement::paint(painter, option, widget);
 
-    // 2. Отрисовка портов подключения (когда курсор над фигурой или фигура выбрана)
-    if (isHovered_ || isSelected()) {
+    // 2. Отрисовка портов подключения (когда курсор над фигурой, фигура выбрана или идет ведение линии)
+    if (showPortsAlways_ || isHovered_ || isSelected()) {
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);
 
@@ -159,13 +169,41 @@ void RectangleElement::paint(QPainter *painter, const QStyleOptionGraphicsItem *
             QPointF center = portLocalPos(p);
             bool isCurrent = (p == hoveredPort_);
 
-            qreal r = isCurrent ? 4.5 : 3.5;
-            QPen portPen(isCurrent ? QColor(37, 99, 235) : QColor(100, 116, 139), isCurrent ? 1.5 : 1.0);
-            portPen.setCosmetic(true);
+            if (showPortsAlways_) {
+                // Режим ведения линии: отчетливые мишени-порты на всех объектах
+                if (isCurrent) {
+                    // Порт, к которому сейчас происходит примагничивание: яркий зеленый прицел
+                    QPen snapPen(QColor(16, 185, 129), 2.0);
+                    snapPen.setCosmetic(true);
+                    painter->setPen(snapPen);
+                    painter->setBrush(QColor(236, 253, 245));
+                    painter->drawEllipse(center, 7.0, 7.0);
 
-            painter->setPen(portPen);
-            painter->setBrush(isCurrent ? QColor(59, 130, 246) : Qt::white);
-            painter->drawEllipse(center, r, r);
+                    painter->setPen(Qt::NoPen);
+                    painter->setBrush(QColor(16, 185, 129));
+                    painter->drawEllipse(center, 2.5, 2.5);
+                } else {
+                    // Доступный для примагничивания порт: синий круг с точкой
+                    QPen targetPen(QColor(37, 99, 235), 1.5);
+                    targetPen.setCosmetic(true);
+                    painter->setPen(targetPen);
+                    painter->setBrush(Qt::white);
+                    painter->drawEllipse(center, 5.0, 5.0);
+
+                    painter->setPen(Qt::NoPen);
+                    painter->setBrush(QColor(37, 99, 235));
+                    painter->drawEllipse(center, 1.8, 1.8);
+                }
+            } else {
+                // Обычный режим выделения/наведения
+                qreal r = isCurrent ? 5.0 : 4.0;
+                QPen portPen(isCurrent ? QColor(37, 99, 235) : QColor(100, 116, 139), isCurrent ? 1.5 : 1.0);
+                portPen.setCosmetic(true);
+
+                painter->setPen(portPen);
+                painter->setBrush(isCurrent ? QColor(59, 130, 246) : Qt::white);
+                painter->drawEllipse(center, r, r);
+            }
         }
 
         painter->restore();

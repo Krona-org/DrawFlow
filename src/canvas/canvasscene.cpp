@@ -101,32 +101,41 @@ QList<QRectF> CanvasScene::obstacleRects(const QGraphicsItem *exclude1, const QG
     return obstacles;
 }
 
-QPair<RectangleElement*, PortPosition> CanvasScene::findPortAt(const QPointF &scenePos, RectangleElement *exclude) const {
-    const auto hitItems = items(scenePos);
-    for (QGraphicsItem *item : hitItems) {
-        if (item == exclude) continue;
-        if (auto rect = dynamic_cast<RectangleElement*>(item)) {
-            QPointF localPos = rect->mapFromScene(scenePos);
-            PortPosition port = rect->portAt(localPos);
-            if (port != PortPosition::None) {
-                return {rect, port};
-            }
-        }
-    }
+QPair<RectangleElement*, PortPosition> CanvasScene::findPortAt(const QPointF &scenePos, RectangleElement *exclude, qreal maxDist) const {
+    RectangleElement *bestRect = nullptr;
+    PortPosition bestPort = PortPosition::None;
+    qreal bestDist = maxDist;
 
-    // Если прямо под курсором нет, ищем в радиусе 14px среди всех прямоугольников
     for (QGraphicsItem *item : items()) {
         if (item == exclude) continue;
         if (auto rect = dynamic_cast<RectangleElement*>(item)) {
-            QPointF localPos = rect->mapFromScene(scenePos);
-            PortPosition port = rect->portAt(localPos);
-            if (port != PortPosition::None) {
-                return {rect, port};
+            const PortPosition ports[] = {
+                PortPosition::Top,
+                PortPosition::Right,
+                PortPosition::Bottom,
+                PortPosition::Left
+            };
+            for (PortPosition p : ports) {
+                QPointF pPos = rect->portScenePos(p);
+                qreal dist = std::hypot(pPos.x() - scenePos.x(), pPos.y() - scenePos.y());
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    bestRect = rect;
+                    bestPort = p;
+                }
             }
         }
     }
 
-    return {nullptr, PortPosition::None};
+    return {bestRect, bestPort};
+}
+
+void CanvasScene::setConnectingMode(bool connecting) {
+    for (QGraphicsItem *item : items()) {
+        if (auto rect = dynamic_cast<RectangleElement*>(item)) {
+            rect->setShowPortsAlways(connecting);
+        }
+    }
 }
 
 void CanvasScene::updateConnectedLines(RectangleElement *rect) {
@@ -301,12 +310,15 @@ void CanvasScene::drawBackground(QPainter *painter, const QRectF &rect) {
 void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
     if (event->button() == Qt::LeftButton) {
         // 1. Проверяем клик по порту подключения прямоугольника (даже при инструменте None / Выбор)
-        auto portMatch = findPortAt(event->scenePos());
+        auto portMatch = findPortAt(event->scenePos(), nullptr, 18.0);
         if (portMatch.first != nullptr && portMatch.second != PortPosition::None) {
             clearSelection();
             isConnectingFromPort_ = true;
             connectStartRect_ = portMatch.first;
             connectStartPort_ = portMatch.second;
+
+            // Включаем отображение портов для примагничивания на ВСЕХ прямоугольниках
+            setConnectingMode(true);
 
             lineCount_++;
             QString name = QStringLiteral("Линия %1").arg(lineCount_);
@@ -432,6 +444,7 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
     // Завершение ведения линии от порта
     if (isConnectingFromPort_ && currentCreatingLine_ != nullptr) {
         isConnectingFromPort_ = false;
+        setConnectingMode(false);
 
         if (lastHoveredRect_) {
             lastHoveredRect_->setHoveredPort(PortPosition::None);
@@ -496,6 +509,11 @@ void CanvasScene::keyPressEvent(QKeyEvent *event) {
     if (event->key() == Qt::Key_Escape) {
         if (isConnectingFromPort_ && currentCreatingLine_ != nullptr) {
             isConnectingFromPort_ = false;
+            setConnectingMode(false);
+            if (lastHoveredRect_) {
+                lastHoveredRect_->setHoveredPort(PortPosition::None);
+                lastHoveredRect_ = nullptr;
+            }
             removeItem(currentCreatingLine_);
             delete currentCreatingLine_;
             currentCreatingLine_ = nullptr;
