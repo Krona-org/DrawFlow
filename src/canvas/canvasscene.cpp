@@ -111,14 +111,14 @@ void CanvasScene::pasteClipboard() {
 
   // 1. Создаем копии блоков K1804 MasterBlock
   for (const auto &data : s_clipboard_.blocks) {
-    masterBlockCount_++;
-    QString name = QStringLiteral("MasterBlock %1").arg(masterBlockCount_);
+    quint16 blockNum = nextAvailableMasterBlockNumber();
+    QString name = QStringLiteral("MasterBlock %1").arg(blockNum);
     auto newBlock =
         new MasterBlockElement(nextElementId_++, name, QUuid::createUuid());
     newBlock->setPos(snapPoint(data.pos + offset));
     newBlock->setRect(data.rect);
-    newBlock->setAddress(data.address);
-    newBlock->setStepName(data.stepName);
+    newBlock->setAddress(blockNum);
+    newBlock->setStepName(QString::number(blockNum));
     newBlock->setAllLines(data.lines);
     for (int i = 1; i <= 15; ++i) {
       newBlock->setMField(i, data.mFields[i]);
@@ -142,8 +142,8 @@ void CanvasScene::pasteClipboard() {
 
   // 2. Создаем копии коннекторов
   for (const auto &data : s_clipboard_.connectors) {
-    connectorCount_++;
-    QString name = QStringLiteral("Connector %1").arg(connectorCount_);
+    quint32 connNum = nextAvailableConnectorNumber();
+    QString name = QStringLiteral("Connector %1").arg(connNum);
     auto newConn =
         new ConnectorElement(nextElementId_++, name, QUuid::createUuid());
     newConn->setPos(snapPoint(data.pos + offset));
@@ -186,8 +186,8 @@ void CanvasScene::pasteClipboard() {
 
   // 3. Создаем копии плашек Mask
   for (const auto &data : s_clipboard_.masks) {
-    maskCount_++;
-    QString name = QStringLiteral("Mask %1").arg(maskCount_);
+    quint32 maskNum = nextAvailableMaskNumber();
+    QString name = QStringLiteral("Mask %1").arg(maskNum);
     auto newMask = new MaskElement(nextElementId_++, name, QUuid::createUuid());
     newMask->setPos(snapPoint(data.pos + offset));
     newMask->setRect(data.rect);
@@ -236,6 +236,17 @@ CanvasScene::CanvasScene(QObject *parent) : QGraphicsScene(parent) {
   undoStack_ = new QUndoStack(this);
   connect(this, &QGraphicsScene::selectionChanged, this,
           &CanvasScene::sceneSelectionChanged);
+  connect(this, &QGraphicsScene::selectionChanged, this, [this]() {
+    bool hasConn = false;
+    for (QGraphicsItem *item : selectedItems()) {
+      if (dynamic_cast<ConnectorElement *>(item)) {
+        hasConn = true;
+        break;
+      }
+    }
+    setConnectingMode(hasConn || activeTool_ == ElementType::Connector ||
+                      isConnectingFromPort_);
+  });
 }
 
 void CanvasScene::setGridSize(qreal size) {
@@ -286,6 +297,15 @@ QPointF CanvasScene::snapPoint(const QPointF &pt) const {
 void CanvasScene::setActiveTool(ElementType tool) {
   if (activeTool_ != tool) {
     activeTool_ = tool;
+    bool hasConn = false;
+    for (QGraphicsItem *item : selectedItems()) {
+      if (dynamic_cast<ConnectorElement *>(item)) {
+        hasConn = true;
+        break;
+      }
+    }
+    setConnectingMode(tool == ElementType::Connector || hasConn ||
+                      isConnectingFromPort_);
     emit activeToolChanged(tool);
   }
 }
@@ -316,8 +336,8 @@ QList<QRectF> CanvasScene::obstacleRects(const QGraphicsItem *exclude1,
     if (item == exclude1 || item == exclude2)
       continue;
     if (auto block = dynamic_cast<MasterBlockElement *>(item)) {
-      // Используем физическую геометрию блока на сцене
-      obstacles.append(block->mapRectToScene(block->rect()));
+      // Используем полную геометрию блока вместе с верхними плашками [ 1 ]
+      obstacles.append(block->mapRectToScene(block->obstacleRect()));
     }
   }
   return obstacles;
@@ -375,34 +395,345 @@ void CanvasScene::openBlockParamsDialog(MasterBlockElement *block) {
   }
 }
 
-void CanvasScene::updateConnectedLines(MasterBlockElement *block) {
+void CanvasScene::notifyBlockMoved(MasterBlockElement *block) {
   if (!block)
     return;
+  if (isBatchingMove_) {
+    dirtyMovedBlocks_.insert(block);
+  } else {
+    updateConnectedLinesForBlocks({block});
+  }
+}
 
-  for (QGraphicsItem *item : items()) {
-    if (auto conn = dynamic_cast<ConnectorElement *>(item)) {
-      if (conn->startBlock() == block || conn->endBlock() == block) {
-        QPointF startPt = conn->p1();
-        QPointF startNorm(0, 0);
-        if (conn->startBlock()) {
-          startPt = conn->startBlock()->portScenePos(conn->startPort());
-          startNorm = conn->startBlock()->portNormal(conn->startPort());
-        }
+void CanvasScene::updateConnectedLines(MasterBlockElement *block) {
+  if (block) {
+    updateConnectedLinesForBlocks({block});
+  } else {
+    updateConnectedLinesForBlocks({});
+  }
+}
 
-        QPointF endPt = conn->p2();
-        QPointF endNorm(0, 0);
-        if (conn->endBlock()) {
-          endPt = conn->endBlock()->portScenePos(conn->endPort());
-          endNorm = conn->endBlock()->portNormal(conn->endPort());
-        }
+void CanvasScene::updateConnectedLinesForBlocks(
+    const QSet<MasterBlockElement *> &movedBlocks) {
+  // 1. Собираем коннекторы сцены; если известно, какие блоки сдвинулись,
+  // пересчитываем ТОЛЬКО затронутые коннекторы, а остальные сразу берем в existingSegments
+  QList<ConnectorElement *> allConns;
+  QList<QLineF> existingSegments;
 
-        auto obstacles = obstacleRects();
-        QVector<QPointF> route = OrthogonalRouter::route(
-            startPt, startNorm, endPt, endNorm, obstacles, 18.0);
-        conn->setPoints(route);
+  QList<QRectF> movedZones;
+  if (!movedBlocks.isEmpty()) {
+    for (MasterBlockElement *mb : movedBlocks) {
+      if (mb) {
+        movedZones.append(
+            mb->mapRectToScene(mb->obstacleRect()).adjusted(-42, -42, 42, 42));
       }
     }
   }
+
+  // Находим все блоки, связанные с перемещенными блоками общим пучком коннекторов
+  QSet<MasterBlockElement *> affectedBlocks = movedBlocks;
+  if (!movedBlocks.isEmpty()) {
+    for (QGraphicsItem *item : items()) {
+      if (auto conn = dynamic_cast<ConnectorElement *>(item)) {
+        if (conn == currentCreatingConnector_ || conn == currentCreatingElement_)
+          continue;
+        if (movedBlocks.contains(conn->startBlock()) ||
+            movedBlocks.contains(conn->endBlock())) {
+          if (conn->startBlock())
+            affectedBlocks.insert(conn->startBlock());
+          if (conn->endBlock())
+            affectedBlocks.insert(conn->endBlock());
+        }
+      }
+    }
+  }
+
+  for (QGraphicsItem *item : items()) {
+    if (auto conn = dynamic_cast<ConnectorElement *>(item)) {
+      if (conn == currentCreatingConnector_ || conn == currentCreatingElement_)
+        continue;
+
+      bool isConnected = (conn->startBlock() || conn->endBlock());
+      if (!isConnected) {
+        const auto &pts = conn->points();
+        for (int i = 0; i < pts.size() - 1; ++i) {
+          existingSegments.append(QLineF(pts[i], pts[i + 1]));
+        }
+        continue;
+      }
+
+      bool needsUpdate = movedBlocks.isEmpty();
+      if (!needsUpdate) {
+        if (affectedBlocks.contains(conn->startBlock()) ||
+            affectedBlocks.contains(conn->endBlock())) {
+          needsUpdate = true;
+        } else if (conn->points().size() > 4) {
+          // Линия огибала препятствия — проверяем, не освободился ли путь
+          needsUpdate = true;
+        } else {
+          QRectF cb = conn->boundingRect();
+          for (const QRectF &zone : movedZones) {
+            if (cb.intersects(zone)) {
+              needsUpdate = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (needsUpdate) {
+        allConns.append(conn);
+      } else {
+        const auto &pts = conn->points();
+        for (int i = 0; i < pts.size() - 1; ++i) {
+          existingSegments.append(QLineF(pts[i], pts[i + 1]));
+        }
+      }
+    }
+  }
+  if (allConns.isEmpty())
+    return;
+
+  std::sort(allConns.begin(), allConns.end(),
+            [](ConnectorElement *a, ConnectorElement *b) {
+              return a->id() < b->id();
+            });
+
+  auto obstacles = obstacleRects();
+  auto appendRouteSegments = [&](const QVector<QPointF> &pts) {
+    for (int i = 0; i < pts.size() - 1; ++i) {
+      existingSegments.append(QLineF(pts[i], pts[i + 1]));
+    }
+  };
+
+  // 2. Сначала адаптируем коннекторы с ручной настройкой сегментов (Rubber-banding)
+  QSet<ConnectorElement *> handledManual;
+  for (ConnectorElement *conn : allConns) {
+    if (!conn->hasManualOffset() || !conn->isOrthogonal())
+      continue;
+
+    QPointF startPt = conn->startBlock()
+                          ? conn->startBlock()->portScenePos(conn->startPort())
+                          : conn->p1();
+    QPointF startNorm = conn->startBlock()
+                            ? conn->startBlock()->portNormal(conn->startPort())
+                            : QPointF(0, 0);
+    QPointF endPt = conn->endBlock()
+                        ? conn->endBlock()->portScenePos(conn->endPort())
+                        : conn->p2();
+    QPointF endNorm = conn->endBlock()
+                          ? conn->endBlock()->portNormal(conn->endPort())
+                          : QPointF(0, 0);
+
+    QVector<QPointF> adapted = OrthogonalRouter::adaptManualRoute(
+        conn->points(), startPt, startNorm, endPt, endNorm, obstacles, 12.0);
+    if (!adapted.isEmpty()) {
+      conn->setPoints(adapted);
+      appendRouteSegments(adapted);
+      handledManual.insert(conn);
+    }
+  }
+
+  // 3. Группируем автоматические парные коннекторы по каналам (пара блоков + стороны выхода/входа)
+  struct ChannelKey {
+    MasterBlockElement *bA;
+    int sideA;
+    MasterBlockElement *bB;
+    int sideB;
+    bool operator<(const ChannelKey &o) const {
+      if (bA != o.bA) return bA < o.bA;
+      if (sideA != o.sideA) return sideA < o.sideA;
+      if (bB != o.bB) return bB < o.bB;
+      return sideB < o.sideB;
+    }
+  };
+
+  auto portSide = [](PortPosition p) -> int {
+    return (p == PortPosition::OutTop || p == PortPosition::OutMid ||
+            p == PortPosition::OutBot)
+               ? 1
+               : 0;
+  };
+
+  QMap<ChannelKey, QList<ConnectorElement *>> channelGroups;
+  QList<ConnectorElement *> singleConns;
+
+  for (ConnectorElement *conn : allConns) {
+    if (handledManual.contains(conn))
+      continue;
+    MasterBlockElement *b1 = conn->startBlock();
+    MasterBlockElement *b2 = conn->endBlock();
+    if (b1 && b2) {
+      int s1 = portSide(conn->startPort());
+      int s2 = portSide(conn->endPort());
+      if (b1 > b2 || (b1 == b2 && s1 > s2)) {
+        std::swap(b1, b2);
+        std::swap(s1, s2);
+      }
+      channelGroups[{b1, s1, b2, s2}].append(conn);
+    } else {
+      singleConns.append(conn);
+    }
+  }
+
+  // 4. Маршрутизация пучков между блоками без перехлестов и наложений
+  for (auto it = channelGroups.begin(); it != channelGroups.end(); ++it) {
+    QList<ConnectorElement *> &conns = it.value();
+
+    auto leftRightPts = [](ConnectorElement *c) -> QPair<QPointF, QPointF> {
+      QPointF pA = c->startBlock()->portScenePos(c->startPort());
+      QPointF pB = c->endBlock()->portScenePos(c->endPort());
+      if (pA.x() <= pB.x())
+        return {pA, pB};
+      return {pB, pA};
+    };
+
+    // Сортируем пучок сверху вниз по координатам портов
+    std::sort(conns.begin(), conns.end(),
+              [&](ConnectorElement *a, ConnectorElement *b) {
+                auto lrA = leftRightPts(a);
+                auto lrB = leftRightPts(b);
+                if (std::abs(lrA.first.y() - lrB.first.y()) > 1.0)
+                  return lrA.first.y() < lrB.first.y();
+                if (std::abs(lrA.second.y() - lrB.second.y()) > 1.0)
+                  return lrA.second.y() < lrB.second.y();
+                return a->id() < b->id();
+              });
+
+    // Определяем общий наклон пучка (идет ли пучок вправо-вверх или вправо-вниз)
+    qreal sumLeftY = 0.0, sumRightY = 0.0;
+    for (ConnectorElement *c : conns) {
+      auto lr = leftRightPts(c);
+      sumLeftY += lr.first.y();
+      sumRightY += lr.second.y();
+    }
+    bool goesDown = (sumRightY > sumLeftY + 5.0 * conns.size());
+
+    int total = conns.size();
+    for (int k = 0; k < total; ++k) {
+      ConnectorElement *conn = conns[k];
+
+      qreal laneOffset = 0.0;
+      if (conn->hasManualOffset()) {
+        laneOffset = conn->manualMidOffset();
+      } else if (total > 1) {
+        qreal rawIdx = goesDown ? ((total - 1 - k) - (total - 1) * 0.5)
+                                : (k - (total - 1) * 0.5);
+        laneOffset = rawIdx * 16.0;
+      }
+
+      QPointF startPt = conn->startBlock()->portScenePos(conn->startPort());
+      QPointF startNorm = conn->startBlock()->portNormal(conn->startPort());
+      QPointF endPt = conn->endBlock()->portScenePos(conn->endPort());
+      QPointF endNorm = conn->endBlock()->portNormal(conn->endPort());
+
+      if (conn->isOrthogonal()) {
+        QVector<QPointF> route = OrthogonalRouter::route(
+            startPt, startNorm, endPt, endNorm, obstacles, 18.0, laneOffset,
+            existingSegments);
+        conn->setPoints(route);
+        appendRouteSegments(route);
+      } else {
+        conn->setPoints({startPt, endPt});
+      }
+    }
+  }
+
+  // 5. Одиночные коннекторы (один конец привязан, другой свободный)
+  for (ConnectorElement *conn : singleConns) {
+    QPointF startPt = conn->p1();
+    QPointF startNorm(0, 0);
+    if (conn->startBlock()) {
+      startPt = conn->startBlock()->portScenePos(conn->startPort());
+      startNorm = conn->startBlock()->portNormal(conn->startPort());
+    }
+
+    QPointF endPt = conn->p2();
+    QPointF endNorm(0, 0);
+    if (conn->endBlock()) {
+      endPt = conn->endBlock()->portScenePos(conn->endPort());
+      endNorm = conn->endBlock()->portNormal(conn->endPort());
+    }
+
+    if (conn->isOrthogonal()) {
+      qreal laneOffset =
+          conn->hasManualOffset() ? conn->manualMidOffset() : 0.0;
+      QVector<QPointF> route = OrthogonalRouter::route(
+          startPt, startNorm, endPt, endNorm, obstacles, 18.0, laneOffset,
+          existingSegments);
+      conn->setPoints(route);
+      appendRouteSegments(route);
+    } else {
+      conn->setPoints({startPt, endPt});
+    }
+  }
+}
+
+quint16 CanvasScene::nextAvailableMasterBlockNumber() const {
+  QSet<quint16> used;
+  for (QGraphicsItem *item : items()) {
+    if (auto *block = dynamic_cast<MasterBlockElement *>(item)) {
+      if (block->address() > 0) {
+        used.insert(block->address());
+      }
+      bool ok = false;
+      uint stepNum = block->stepName().trimmed().toUInt(&ok);
+      if (ok && stepNum > 0 && stepNum <= 65535) {
+        used.insert(static_cast<quint16>(stepNum));
+      }
+      if (block->name().startsWith(QStringLiteral("MasterBlock "))) {
+        uint nameNum = block->name().mid(12).trimmed().toUInt(&ok);
+        if (ok && nameNum > 0 && nameNum <= 65535) {
+          used.insert(static_cast<quint16>(nameNum));
+        }
+      }
+    }
+  }
+  quint16 candidate = 1;
+  while (used.contains(candidate) && candidate < 65535) {
+    ++candidate;
+  }
+  return candidate;
+}
+
+quint32 CanvasScene::nextAvailableConnectorNumber() const {
+  QSet<quint32> used;
+  for (QGraphicsItem *item : items()) {
+    if (auto *conn = dynamic_cast<ConnectorElement *>(item)) {
+      if (conn->name().startsWith(QStringLiteral("Connector "))) {
+        bool ok = false;
+        uint num = conn->name().mid(10).trimmed().toUInt(&ok);
+        if (ok && num > 0) {
+          used.insert(num);
+        }
+      }
+    }
+  }
+  quint32 candidate = 1;
+  while (used.contains(candidate)) {
+    ++candidate;
+  }
+  return candidate;
+}
+
+quint32 CanvasScene::nextAvailableMaskNumber() const {
+  QSet<quint32> used;
+  for (QGraphicsItem *item : items()) {
+    if (auto *mask = dynamic_cast<MaskElement *>(item)) {
+      if (mask->name().startsWith(QStringLiteral("Mask "))) {
+        bool ok = false;
+        uint num = mask->name().mid(5).trimmed().toUInt(&ok);
+        if (ok && num > 0) {
+          used.insert(num);
+        }
+      }
+    }
+  }
+  quint32 candidate = 1;
+  while (used.contains(candidate)) {
+    ++candidate;
+  }
+  return candidate;
 }
 
 ShapeElement *CanvasScene::addElementAt(ElementType type,
@@ -410,13 +741,13 @@ ShapeElement *CanvasScene::addElementAt(ElementType type,
   QPointF pos = snapPoint(scenePos);
 
   if (type == ElementType::MasterBlock) {
-    masterBlockCount_++;
-    QString name = QStringLiteral("MasterBlock %1").arg(masterBlockCount_);
+    quint16 blockNum = nextAvailableMasterBlockNumber();
+    QString name = QStringLiteral("MasterBlock %1").arg(blockNum);
     auto blockItem =
         new MasterBlockElement(nextElementId_++, name, QUuid::createUuid());
     blockItem->setPos(pos);
-    blockItem->setAddress(static_cast<quint16>(masterBlockCount_));
-    blockItem->setStepName(QString::number(masterBlockCount_));
+    blockItem->setAddress(blockNum);
+    blockItem->setStepName(QString::number(blockNum));
     blockItem->setRect(QRectF(0, 0, 180, 110));
     if (undoStack_) {
       undoStack_->push(new AddElementCommand(this, blockItem, false));
@@ -427,13 +758,21 @@ ShapeElement *CanvasScene::addElementAt(ElementType type,
     }
     return blockItem;
   } else if (type == ElementType::Connector) {
-    connectorCount_++;
-    QString name = QStringLiteral("Connector %1").arg(connectorCount_);
+    quint32 connNum = nextAvailableConnectorNumber();
+    QString name = QStringLiteral("Connector %1").arg(connNum);
     auto connItem =
         new ConnectorElement(nextElementId_++, name, QUuid::createUuid());
     connItem->setPos(0, 0);
-    connItem->setP1(pos);
-    connItem->setP2(pos + QPointF(120, 60));
+
+    auto portMatch = findPortAt(pos, nullptr, 22.0);
+    QPointF startPt = pos;
+    if (portMatch.first && portMatch.second != PortPosition::None) {
+      connItem->setStartConnection(portMatch.first, portMatch.second);
+      startPt = portMatch.first->portScenePos(portMatch.second);
+    }
+    connItem->setP1(startPt);
+    connItem->setP2(startPt + QPointF(120, 60));
+    connItem->setPoints({startPt, startPt + QPointF(120, 60)});
     if (undoStack_) {
       undoStack_->push(new AddElementCommand(this, connItem, false));
     } else {
@@ -443,8 +782,8 @@ ShapeElement *CanvasScene::addElementAt(ElementType type,
     }
     return connItem;
   } else if (type == ElementType::Mask) {
-    maskCount_++;
-    QString name = QStringLiteral("Mask %1").arg(maskCount_);
+    quint32 maskNum = nextAvailableMaskNumber();
+    QString name = QStringLiteral("Mask %1").arg(maskNum);
     auto maskItem =
         new MaskElement(nextElementId_++, name, QUuid::createUuid());
     maskItem->setPos(pos);
@@ -621,8 +960,8 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
       // Включаем отображение портов для примагничивания на ВСЕХ блоках
       setConnectingMode(true);
 
-      connectorCount_++;
-      QString name = QStringLiteral("Connector %1").arg(connectorCount_);
+      quint32 connNum = nextAvailableConnectorNumber();
+      QString name = QStringLiteral("Connector %1").arg(connNum);
       currentCreatingConnector_ =
           new ConnectorElement(nextElementId_++, name, QUuid::createUuid());
       currentCreatingConnector_->setPos(0, 0);
@@ -646,29 +985,37 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
       createStartPos_ = snapPoint(event->scenePos());
 
       if (activeTool_ == ElementType::MasterBlock) {
-        masterBlockCount_++;
-        QString name = QStringLiteral("MasterBlock %1").arg(masterBlockCount_);
+        quint16 blockNum = nextAvailableMasterBlockNumber();
+        QString name = QStringLiteral("MasterBlock %1").arg(blockNum);
         auto blockItem =
             new MasterBlockElement(nextElementId_++, name, QUuid::createUuid());
         blockItem->setPos(createStartPos_);
-        blockItem->setAddress(static_cast<quint16>(masterBlockCount_));
-        blockItem->setStepName(QString::number(masterBlockCount_));
+        blockItem->setAddress(blockNum);
+        blockItem->setStepName(QString::number(blockNum));
         blockItem->setRect(QRectF(0, 0, 180, 110));
         addItem(blockItem);
         currentCreatingElement_ = blockItem;
       } else if (activeTool_ == ElementType::Connector) {
-        connectorCount_++;
-        QString name = QStringLiteral("Connector %1").arg(connectorCount_);
+        quint32 connNum = nextAvailableConnectorNumber();
+        QString name = QStringLiteral("Connector %1").arg(connNum);
         auto connItem =
             new ConnectorElement(nextElementId_++, name, QUuid::createUuid());
         connItem->setPos(0, 0);
-        connItem->setP1(createStartPos_);
-        connItem->setP2(createStartPos_ + QPointF(1, 1));
+
+        auto portMatch = findPortAt(createStartPos_, nullptr, 22.0);
+        QPointF startPt = createStartPos_;
+        if (portMatch.first && portMatch.second != PortPosition::None) {
+          connItem->setStartConnection(portMatch.first, portMatch.second);
+          startPt = portMatch.first->portScenePos(portMatch.second);
+        }
+        connItem->setP1(startPt);
+        connItem->setP2(startPt + QPointF(1, 1));
+        connItem->setPoints({startPt, startPt + QPointF(1, 1)});
         addItem(connItem);
         currentCreatingElement_ = connItem;
       } else if (activeTool_ == ElementType::Mask) {
-        maskCount_++;
-        QString name = QStringLiteral("Mask %1").arg(maskCount_);
+        quint32 maskNum = nextAvailableMaskNumber();
+        QString name = QStringLiteral("Mask %1").arg(maskNum);
         auto maskItem =
             new MaskElement(nextElementId_++, name, QUuid::createUuid());
         maskItem->setPos(createStartPos_);
@@ -751,8 +1098,34 @@ void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
     QPointF startNorm = connectStartBlock_->portNormal(connectStartPort_);
 
     auto obstacles = obstacleRects();
+    QList<QLineF> existingSegments;
+    int existingCount = 0;
+    for (QGraphicsItem *item : items()) {
+      if (auto c = dynamic_cast<ConnectorElement *>(item)) {
+        if (c == currentCreatingConnector_)
+          continue;
+        const auto &pts = c->points();
+        for (int i = 0; i < pts.size() - 1; ++i) {
+          existingSegments.append(QLineF(pts[i], pts[i + 1]));
+        }
+        if (connectStartBlock_ && targetBlock &&
+            ((c->startBlock() == connectStartBlock_ &&
+              c->endBlock() == targetBlock) ||
+             (c->startBlock() == targetBlock &&
+              c->endBlock() == connectStartBlock_))) {
+          existingCount++;
+        }
+      }
+    }
+    qreal laneOffset = 0.0;
+    if (existingCount > 0) {
+      laneOffset = (existingCount % 2 == 1)
+                       ? ((existingCount + 1) / 2) * 16.0
+                       : -(existingCount / 2) * 16.0;
+    }
     QVector<QPointF> route = OrthogonalRouter::route(
-        startPt, startNorm, targetPt, targetNormal, obstacles, 18.0);
+        startPt, startNorm, targetPt, targetNormal, obstacles, 18.0, laneOffset,
+        existingSegments);
     currentCreatingConnector_->setPoints(route);
     currentCreatingConnector_->setEndConnection(targetBlock, targetPort);
 
@@ -775,7 +1148,77 @@ void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
       blockItem->setRect(QRectF(0, 0, qMax(120.0, w), qMax(80.0, h)));
     } else if (auto connItem =
                    dynamic_cast<ConnectorElement *>(currentCreatingElement_)) {
-      connItem->setP2(curPos);
+      QPointF rawCurPos = event->scenePos();
+      auto targetMatch = findPortAt(rawCurPos, nullptr, 22.0);
+      if (targetMatch.first == connItem->startBlock() &&
+          targetMatch.second == connItem->startPort()) {
+        targetMatch = {nullptr, PortPosition::None};
+      }
+
+      QPointF targetPt = rawCurPos;
+      QPointF targetNorm(0, 0);
+      MasterBlockElement *targetBlock = targetMatch.first;
+      PortPosition targetPort = targetMatch.second;
+
+      if (targetBlock && targetPort != PortPosition::None) {
+        if (lastHoveredBlock_ && lastHoveredBlock_ != targetBlock) {
+          lastHoveredBlock_->setHoveredPort(PortPosition::None);
+        }
+        targetPt = targetBlock->portScenePos(targetPort);
+        targetNorm = targetBlock->portNormal(targetPort);
+        targetBlock->setHoveredPort(targetPort);
+        lastHoveredBlock_ = targetBlock;
+        lastHoveredPort_ = targetPort;
+      } else {
+        if (lastHoveredBlock_) {
+          lastHoveredBlock_->setHoveredPort(PortPosition::None);
+          lastHoveredBlock_ = nullptr;
+          lastHoveredPort_ = PortPosition::None;
+        }
+        if (snapToGrid_ && gridSize_ > 1.0) {
+          targetPt = snapPoint(targetPt);
+        }
+      }
+
+      connItem->setP2(targetPt);
+      connItem->setEndConnection(targetBlock, targetPort);
+
+      QPointF startPt = connItem->p1();
+      QPointF startNorm(0, 0);
+      if (connItem->startBlock() && connItem->startPort() != PortPosition::None) {
+        startPt = connItem->startBlock()->portScenePos(connItem->startPort());
+        startNorm = connItem->startBlock()->portNormal(connItem->startPort());
+      }
+      auto obstacles = obstacleRects();
+      QList<QLineF> existingSegments;
+      int existingCount = 0;
+      for (QGraphicsItem *item : items()) {
+        if (auto c = dynamic_cast<ConnectorElement *>(item)) {
+          if (c == connItem)
+            continue;
+          const auto &pts = c->points();
+          for (int i = 0; i < pts.size() - 1; ++i) {
+            existingSegments.append(QLineF(pts[i], pts[i + 1]));
+          }
+          if (connItem->startBlock() && targetBlock &&
+              ((c->startBlock() == connItem->startBlock() &&
+                c->endBlock() == targetBlock) ||
+               (c->startBlock() == targetBlock &&
+                c->endBlock() == connItem->startBlock()))) {
+            existingCount++;
+          }
+        }
+      }
+      qreal laneOffset = 0.0;
+      if (existingCount > 0) {
+        laneOffset = (existingCount % 2 == 1)
+                         ? ((existingCount + 1) / 2) * 16.0
+                         : -(existingCount / 2) * 16.0;
+      }
+      QVector<QPointF> route = OrthogonalRouter::route(
+          startPt, startNorm, targetPt, targetNorm, obstacles, 18.0, laneOffset,
+          existingSegments);
+      connItem->setPoints(route);
     } else if (auto maskItem =
                    dynamic_cast<MaskElement *>(currentCreatingElement_)) {
       qreal x = delta.x() >= 0 ? createStartPos_.x() : curPos.x();
@@ -790,12 +1233,15 @@ void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
     return;
   }
 
+  isBatchingMove_ = true;
+  dirtyMovedBlocks_.clear();
   QGraphicsScene::mouseMoveEvent(event);
+  isBatchingMove_ = false;
 
-  // Если перемещается выбранный блок, обновляем связанные линии
-  auto sel = selectedElement();
-  if (sel && sel->elementType() == ElementType::MasterBlock) {
-    updateConnectedLines(dynamic_cast<MasterBlockElement *>(sel));
+  if (!dirtyMovedBlocks_.isEmpty()) {
+    QSet<MasterBlockElement *> moved = std::move(dirtyMovedBlocks_);
+    dirtyMovedBlocks_.clear();
+    updateConnectedLinesForBlocks(moved);
   }
 }
 
@@ -827,6 +1273,9 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
       } else {
         emit elementAdded(currentCreatingConnector_);
       }
+      if (currentCreatingConnector_->startBlock() && currentCreatingConnector_->endBlock()) {
+        updateConnectedLines(currentCreatingConnector_->startBlock());
+      }
     } else {
       removeItem(currentCreatingConnector_);
       delete currentCreatingConnector_;
@@ -852,8 +1301,18 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
       }
     } else if (auto connItem =
                    dynamic_cast<ConnectorElement *>(currentCreatingElement_)) {
-      if (QLineF(connItem->p1(), connItem->p2()).length() < 15.0) {
-        connItem->setP2(connItem->p1() + QPointF(120, 60));
+      if (lastHoveredBlock_) {
+        lastHoveredBlock_->setHoveredPort(PortPosition::None);
+        lastHoveredBlock_ = nullptr;
+        lastHoveredPort_ = PortPosition::None;
+      }
+      if (QLineF(connItem->p1(), connItem->p2()).length() < 12.0) {
+        removeItem(connItem);
+        delete connItem;
+        currentCreatingElement_ = nullptr;
+        setActiveTool(ElementType::None);
+        event->accept();
+        return;
       }
     }
 
@@ -864,6 +1323,11 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
     } else {
       emit elementAdded(currentCreatingElement_);
     }
+    if (auto c = dynamic_cast<ConnectorElement *>(currentCreatingElement_)) {
+      if (c->startBlock() && c->endBlock()) {
+        updateConnectedLines(c->startBlock());
+      }
+    }
     currentCreatingElement_ = nullptr;
 
     setActiveTool(ElementType::None);
@@ -872,11 +1336,15 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
     return;
   }
 
+  isBatchingMove_ = true;
+  dirtyMovedBlocks_.clear();
   QGraphicsScene::mouseReleaseEvent(event);
+  isBatchingMove_ = false;
 
-  auto sel = selectedElement();
-  if (sel && sel->elementType() == ElementType::MasterBlock) {
-    updateConnectedLines(dynamic_cast<MasterBlockElement *>(sel));
+  if (!dirtyMovedBlocks_.isEmpty()) {
+    QSet<MasterBlockElement *> moved = std::move(dirtyMovedBlocks_);
+    dirtyMovedBlocks_.clear();
+    updateConnectedLinesForBlocks(moved);
   }
 
   // Проверяем изменение размера или перемещение

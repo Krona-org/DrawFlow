@@ -10,6 +10,7 @@
 #include <QGraphicsScene>
 #include <QList>
 #include <QRectF>
+#include <QSet>
 #include <QUndoStack>
 
 namespace editor {
@@ -61,7 +62,8 @@ public:
   // Маршрутизация и обновление связанных линий
   QList<QRectF> obstacleRects(const QGraphicsItem *exclude1 = nullptr,
                               const QGraphicsItem *exclude2 = nullptr) const;
-  void updateConnectedLines(MasterBlockElement *block);
+  void updateConnectedLines(MasterBlockElement *block = nullptr);
+  void notifyBlockMoved(MasterBlockElement *block);
   QPair<MasterBlockElement *, PortPosition>
   findPortAt(const QPointF &scenePos, MasterBlockElement *exclude = nullptr,
              qreal maxDist = 24.0) const;
@@ -104,6 +106,14 @@ private:
 
   MasterBlockElement *lastHoveredBlock_ = nullptr;
   PortPosition lastHoveredPort_ = PortPosition::None;
+
+  bool isBatchingMove_ = false;
+  QSet<MasterBlockElement *> dirtyMovedBlocks_;
+  void updateConnectedLinesForBlocks(const QSet<MasterBlockElement *> &movedBlocks);
+
+  quint16 nextAvailableMasterBlockNumber() const;
+  quint32 nextAvailableConnectorNumber() const;
+  quint32 nextAvailableMaskNumber() const;
 
   struct MasterBlockClipboardData {
     quint32 originalId = 0;

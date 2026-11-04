@@ -14,7 +14,9 @@ CanvasView::CanvasView(CanvasScene *scene, QWidget *parent)
 {
     setRenderHint(QPainter::Antialiasing);
     setRenderHint(QPainter::SmoothPixmapTransform);
-    setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+    setViewportUpdateMode(QGraphicsView::BoundingRectViewportUpdate);
+    setOptimizationFlags(QGraphicsView::DontSavePainterState |
+                         QGraphicsView::DontAdjustForAntialiasing);
     setDragMode(QGraphicsView::RubberBandDrag);
     setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     setResizeAnchor(QGraphicsView::AnchorUnderMouse);

@@ -51,6 +51,21 @@ public:
   LineMarkerType endMarker() const { return endMarker_; }
   void setEndMarker(LineMarkerType marker);
 
+  // Ручная регулировка изломов / полос (как в Visio)
+  bool hasManualOffset() const { return hasManualOffset_; }
+  qreal manualMidOffset() const { return manualMidOffset_; }
+  void setManualMidOffset(qreal offset) {
+    manualMidOffset_ = offset;
+    hasManualOffset_ = true;
+  }
+  void clearManualOffset() {
+    hasManualOffset_ = false;
+    manualMidOffset_ = 0.0;
+  }
+
+  bool isVerticalSegment(int idx) const;
+  int findNearestSegment(const QPointF &pt) const;
+
   ResizeHandle handleAt(const QPointF &localPos) const override;
   void startHandleDrag(ResizeHandle handle,
                        const QPointF &startScenePos) override;
@@ -65,6 +80,13 @@ public:
 protected:
   void drawShape(QPainter *painter) override;
   QRectF handleRect(ResizeHandle handle) const override;
+
+  void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
+  void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
+  void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
+  void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) override;
+  void hoverMoveEvent(QGraphicsSceneHoverEvent *event) override;
+  void hoverLeaveEvent(QGraphicsSceneHoverEvent *event) override;
 
 private:
   void updatePath();
@@ -81,6 +103,18 @@ private:
   PortPosition endPort_ = PortPosition::None;
 
   bool isOrthogonal_ = true;
+  bool hasManualOffset_ = false;
+  qreal manualMidOffset_ = 0.0;
+
+  bool isDraggingBody_ = false;
+  bool hasExceededDragThreshold_ = false;
+  int dragBodyNearestSegment_ = -1;
+  QPointF dragBodyStartScenePos_;
+  QPointF dragBodyInitialP1_;
+  QPointF dragBodyInitialP2_;
+  QVector<QPointF> dragBodyInitialPoints_;
+  QVector<QPointF> dragInitialPoints_;
+
   QPointF dragStartScenePos_;
   QPointF initialP1_;
   QPointF initialP2_;
