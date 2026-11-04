@@ -51,6 +51,7 @@ private:
   MasterBlockElement *block_ = nullptr;
   CanvasScene *scene_ = nullptr;
   bool updatingUi_ = false;
+  bool isBlockCleared_ = false;
 
   // Текущее редактируемое состояние
   QString currentStepName_;

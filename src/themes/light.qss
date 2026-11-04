@@ -1,0 +1,581 @@
+/* ==========================================================
+   DrawFlow Light Theme (Strict Minimalist)
+   ========================================================== */
+
+/* ==================== 1. Base & Main Window ==================== */
+QMainWindow, QDialog {
+  background-color: #E5E9F0;
+  color: #1E242B;
+  font-family: "Segoe UI", "Inter", sans-serif;
+  font-size: 13px;
+}
+
+QDialog#blockParamsDialog {
+  background-color: #F4F6F8;
+  color: #1E242B;
+}
+
+QSplitter::handle, QMainWindow::separator {
+  background-color: #CBD2D9;
+  width: 1px;
+  height: 1px;
+}
+
+QSplitter::handle:hover, QMainWindow::separator:hover {
+  background-color: #9AA5B1;
+}
+
+/* ==================== 2. Menu Bar & Menus ==================== */
+QMenuBar {
+  background-color: #D8DEE9;
+  border-bottom: 1px solid #C2C9D6;
+  padding: 2px 6px;
+  color: #1E242B;
+}
+
+QMenuBar::item {
+  padding: 5px 10px;
+  border-radius: 3px;
+  background: transparent;
+}
+
+QMenuBar::item:selected {
+  background-color: #C8D0DF;
+  color: #11161B;
+}
+
+QMenu {
+  background-color: #F4F6F9;
+  border: 1px solid #C2C9D6;
+  padding: 4px;
+  color: #1E242B;
+}
+
+QMenu::item {
+  padding: 6px 26px 6px 24px;
+  border-radius: 3px;
+}
+
+QMenu::item:selected {
+  background-color: #DCE4F2;
+  color: #1D4ED8;
+}
+
+QMenu::separator {
+  height: 1px;
+  background: #D8DEE9;
+  margin: 4px 6px;
+}
+
+/* ==================== 3. ToolBars & ToolButtons ==================== */
+QToolBar {
+  background-color: #E5E9F0;
+  border: none;
+  border-bottom: 1px solid #C8D0DF;
+  spacing: 4px;
+  padding: 3px 8px;
+}
+
+QToolBar::separator {
+  background-color: #C2C9D6;
+  width: 1px;
+  margin: 4px 6px;
+}
+
+QToolButton {
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 4px 6px;
+  color: #2E3440;
+  font-weight: 500;
+}
+
+QToolButton:hover {
+  background-color: #D8DEE9;
+  border-color: #C2C9D6;
+}
+
+QToolButton:pressed, QToolButton:checked {
+  background-color: #C8D0DF;
+  border-color: #8892B0;
+  color: #11161B;
+}
+
+/* Custom Dock Title Bar & Buttons */
+QWidget#dockCustomTitleBar {
+  background-color: #D8DEE9;
+  border-bottom: 1px solid #C2C9D6;
+}
+
+QLabel#dockTitleLabel {
+  color: #2E3440;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  background: transparent;
+  border: none;
+}
+
+QToolButton#dockCollapseBtn,
+QToolButton#dockFloatBtn {
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  padding: 2px;
+}
+
+QToolButton#dockCollapseBtn:hover,
+QToolButton#dockFloatBtn:hover {
+  background-color: #C8D0DF;
+}
+
+QToolButton#dockCloseBtn {
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  padding: 2px;
+}
+
+QToolButton#dockCloseBtn:hover {
+  background-color: #E81123;
+}
+
+QComboBox#comboGridStep {
+  min-width: 72px;
+  max-height: 24px;
+}
+
+/* ==================== 4. Dock Widgets ==================== */
+QDockWidget {
+  color: #2E3440;
+  font-weight: 600;
+}
+
+QDockWidget::title {
+  background-color: #D8DEE9;
+  border-top: 1px solid #E5E9F0;
+  border-bottom: 1px solid #C2C9D6;
+  padding: 6px 10px;
+  text-align: left;
+}
+
+/* ==================== 5. Tree Widget (Project Explorer) ==================== */
+QTreeWidget {
+  background-color: #ECEFF4;
+  border: none;
+  outline: none;
+  color: #2E3440;
+}
+
+QTreeWidget::item {
+  padding: 4px 6px;
+  border-radius: 3px;
+}
+
+QTreeWidget::item:hover {
+  background-color: #E1E6EF;
+}
+
+QTreeWidget::item:selected {
+  background-color: #D0D8E8;
+  color: #1D4ED8;
+  font-weight: 600;
+}
+
+/* ==================== 6. Inputs, SpinBoxes, ComboBoxes ==================== */
+QLineEdit,
+QSpinBox,
+QDoubleSpinBox,
+QComboBox,
+QPlainTextEdit {
+  background-color: #F8FAFC;
+  border: 1px solid #C2C9D6;
+  border-radius: 4px;
+  padding: 3px 6px;
+  color: #1E242B;
+  selection-background-color: #3B82F6;
+  selection-color: #FFFFFF;
+}
+
+QLineEdit:focus,
+QSpinBox:focus,
+QDoubleSpinBox:focus,
+QComboBox:focus,
+QPlainTextEdit:focus {
+  border-color: #3B82F6;
+  background-color: #FFFFFF;
+}
+
+QComboBox::drop-down {
+  border: none;
+  width: 20px;
+}
+
+QComboBox QAbstractItemView {
+  background-color: #FFFFFF;
+  color: #1E242B;
+  border: 1px solid #C2C9D6;
+  selection-background-color: #EFF6FF;
+  selection-color: #1D4ED8;
+  outline: none;
+}
+
+/* ==================== 7. PushButtons ==================== */
+QPushButton {
+  background-color: #D8DEE9;
+  border: 1px solid #B8C2D1;
+  border-radius: 4px;
+  padding: 5px 12px;
+  color: #1E242B;
+  font-weight: 600;
+}
+
+QPushButton:hover {
+  background-color: #C8D0DF;
+  border-color: #9AA5B1;
+}
+
+QPushButton:pressed {
+  background-color: #B8C2D1;
+}
+
+QPushButton#primaryBtn {
+  background-color: #2563EB;
+  color: #FFFFFF;
+  border: 1px solid #1D4ED8;
+  border-radius: 5px;
+  padding: 6px 18px;
+  font-weight: 600;
+}
+
+QPushButton#primaryBtn:hover {
+  background-color: #1D4ED8;
+}
+
+QPushButton#primaryBtn:pressed {
+  background-color: #1E40AF;
+}
+
+QPushButton#primaryBtn:disabled {
+  background-color: #94A3B8;
+  border-color: #94A3B8;
+  color: #E2E8F0;
+}
+
+QPushButton#openDialogBtn {
+  background-color: #2563EB;
+  color: #FFFFFF;
+  border: 1px solid #1D4ED8;
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-weight: 600;
+}
+
+QPushButton#openDialogBtn:hover {
+  background-color: #1D4ED8;
+}
+
+QPushButton#openDialogBtn:pressed {
+  background-color: #1E40AF;
+}
+
+/* ==================== 8. GroupBoxes & Labels ==================== */
+QGroupBox {
+  background-color: #ECEFF4;
+  border: 1px solid #CFD6E2;
+  border-radius: 5px;
+  margin-top: 8px;
+  padding-top: 12px;
+  font-weight: 600;
+  color: #2E3440;
+}
+
+QGroupBox::title {
+  subcontrol-origin: margin;
+  left: 8px;
+  padding: 0 4px;
+  color: #4C566A;
+}
+
+QLabel {
+  color: #2E3440;
+}
+
+/* ==================== 9. ScrollAreas & SmoothScrollArea ==================== */
+QScrollArea,
+SmoothScrollArea,
+#smoothScrollArea,
+#propertyScrollArea {
+  background-color: #ECEFF4;
+  border: none;
+}
+
+QDialog#blockParamsDialog SmoothScrollArea,
+QDialog#blockParamsDialog #smoothScrollArea,
+QWidget#dialogScrollContainer {
+  background-color: transparent;
+  border: none;
+}
+
+QWidget#inspectorContainer {
+  background-color: #ECEFF4;
+}
+
+QScrollBar:vertical {
+  background: transparent;
+  width: 8px;
+  margin: 2px;
+}
+
+QScrollBar::handle:vertical {
+  background: #B8C2D1;
+  min-height: 24px;
+  border-radius: 4px;
+}
+
+QScrollBar::handle:vertical:hover {
+  background: #8892B0;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical,
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical {
+  height: 0px;
+  background: transparent;
+}
+
+QScrollBar:horizontal {
+  background: transparent;
+  height: 8px;
+  margin: 2px;
+}
+
+QScrollBar::handle:horizontal {
+  background: #B8C2D1;
+  min-width: 24px;
+  border-radius: 4px;
+}
+
+QScrollBar::handle:horizontal:hover {
+  background: #8892B0;
+}
+
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal,
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal {
+  width: 0px;
+  background: transparent;
+}
+
+/* ==================== 10. StatusBar ==================== */
+QStatusBar {
+  background-color: #D8DEE9;
+  border-top: 1px solid #C2C9D6;
+  color: #2E3440;
+  font-size: 12px;
+}
+
+/* ==================== 11. Canvas Bottom Bar (Pages & Zoom) ==================== */
+QWidget#canvasBottomBar {
+  background-color: #D8DEE9;
+  border-top: 1px solid #C2C9D6;
+}
+
+QPushButton#pageTabBtn {
+  background-color: transparent;
+  color: #4C566A;
+  border: none;
+  border-top: 2px solid transparent;
+  border-right: 1px solid #C2C9D6;
+  border-radius: 0px;
+  padding: 2px 14px;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+QPushButton#pageTabBtn:hover {
+  background-color: #E5E9F0;
+  color: #1E242B;
+}
+
+QPushButton#pageTabBtn[active="true"] {
+  background-color: #ECEFF4;
+  color: #1D4ED8;
+  border-top: 2px solid #2563EB;
+  border-right: 1px solid #C2C9D6;
+  border-radius: 0px;
+  padding: 2px 14px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+QToolButton#addPageBtn,
+QPushButton#addPageBtn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #4C566A;
+  padding: 0px;
+}
+
+QToolButton#addPageBtn:hover,
+QPushButton#addPageBtn:hover {
+  background-color: #C8D0DF;
+  color: #1E242B;
+}
+
+QLabel#zoomLabel {
+  color: #4C566A;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0 8px;
+  background: transparent;
+  border: none;
+}
+
+/* ==================== 12. Elements Library Frame (Shape Cards) ==================== */
+QFrame#shapeCard {
+  background-color: #E5E9F0;
+  border: 1px solid #C8D0DF;
+  border-radius: 5px;
+}
+
+QFrame#shapeCard:hover {
+  background-color: #DCE2EC;
+  border: 1px solid #9AA5B1;
+}
+
+QFrame#shapeCard[active="true"] {
+  background-color: #D0D8E8;
+  border: 1.5px solid #2563EB;
+  border-radius: 5px;
+}
+
+QLabel#shapeCardIcon {
+  border: none;
+  background: transparent;
+}
+
+QLabel#shapeCardTitle {
+  color: #2E3440;
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+}
+
+QFrame#shapeCard[active="true"] QLabel#shapeCardTitle {
+  color: #1D4ED8;
+  font-weight: 700;
+}
+
+/* ==================== 13. Property Inspector & Block Params Dialog ==================== */
+QLabel#noSelectionLabel {
+  color: #64748B;
+  font-size: 12px;
+  padding: 12px 4px;
+}
+
+QLabel#octDecHintLabel {
+  color: #64748B;
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+}
+
+QLabel#mFieldLabel {
+  color: #1D4ED8;
+  font-weight: 700;
+  font-size: 11px;
+  background: #DBEAFE;
+  border-radius: 3px;
+  padding: 2px 4px;
+}
+
+QFrame#cardFrame {
+  background-color: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 6px;
+}
+
+QLabel#mBadgeLabel {
+  background-color: #DBEAFE;
+  color: #1D4ED8;
+  font-weight: 700;
+  font-size: 11px;
+  border-radius: 4px;
+  padding: 2px 4px;
+  border: 1px solid #BFDBFE;
+}
+
+QLabel#fieldTitleLabel {
+  color: #334155;
+  font-weight: 600;
+  font-size: 12px;
+  border: none;
+  background: transparent;
+}
+
+QLabel#headerFieldLabel {
+  font-weight: 600;
+  color: #334155;
+  border: none;
+  background: transparent;
+}
+
+QLabel#octValueLabel {
+  background-color: #F1F5F9;
+  color: #0F172A;
+  border: 1px solid #CBD5E1;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-family: "Consolas", monospace;
+  font-weight: 700;
+}
+
+QLabel#validationStatusLabel[valid="true"] {
+  color: #15803D;
+  background-color: #DCFCE7;
+  border: 1px solid #86EFAC;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+QLabel#validationStatusLabel[valid="false"] {
+  color: #B91C1C;
+  background-color: #FEE2E2;
+  border: 1px solid #FCA5A5;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+QToolButton#bitBtn {
+  background-color: #F8FAFC;
+  color: #475569;
+  border: 1px solid #CBD5E1;
+  border-radius: 4px;
+  font-family: "Consolas", monospace;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+QToolButton#bitBtn:hover {
+  background-color: #EFF6FF;
+  border-color: #93C5FD;
+}
+
+QToolButton#bitBtn:checked {
+  background-color: #2563EB;
+  color: #FFFFFF;
+  border-color: #1D4ED8;
+}

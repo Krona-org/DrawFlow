@@ -103,7 +103,7 @@ public:
 
 protected:
   void wheelEvent(QWheelEvent *event) override {
-    if (ignoreWheelWhenUnfocused_ && !hasFocus()) {
+    if (ignoreWheelWhenUnfocused_) {
       event->ignore();
       return;
     }

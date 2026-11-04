@@ -3,6 +3,7 @@
 #include "src/canvas/canvasview.h"
 #include "src/elements/connectorElement/connectorelement.h"
 #include "src/elements/masterBlockElement/masterblockelement.h"
+#include "src/themes/thememanager.h"
 #include "ui_mainwindow.h"
 
 #include <QActionGroup>
@@ -24,28 +25,23 @@ namespace {
 class DockCloseButton : public QToolButton {
 public:
   explicit DockCloseButton(QWidget *parent = nullptr) : QToolButton(parent) {
+    setObjectName(QStringLiteral("dockCloseBtn"));
     setFixedSize(20, 20);
     setIcon(QIcon(QStringLiteral(":/dock-close.svg")));
     setIconSize(QSize(12, 12));
     setAutoRaise(true);
     setCursor(Qt::ArrowCursor);
     setToolTip(QStringLiteral("Закрыть панель"));
-    setStyleSheet(QStringLiteral("QToolButton { background: transparent; "
-                                 "border: none; border-radius: 4px; }"));
   }
 
 protected:
   void enterEvent(QEnterEvent *event) override {
     setIcon(QIcon(QStringLiteral(":/dock-close-hover.svg")));
-    setStyleSheet(QStringLiteral("QToolButton { background-color: #ef4444; "
-                                 "border: none; border-radius: 4px; }"));
     QToolButton::enterEvent(event);
   }
 
   void leaveEvent(QEvent *event) override {
     setIcon(QIcon(QStringLiteral(":/dock-close.svg")));
-    setStyleSheet(QStringLiteral("QToolButton { background: transparent; "
-                                 "border: none; border-radius: 4px; }"));
     QToolButton::leaveEvent(event);
   }
 };
@@ -54,16 +50,13 @@ class DockCollapseButton : public QToolButton {
 public:
   explicit DockCollapseButton(QDockWidget *dock, QWidget *parent = nullptr)
       : QToolButton(parent), dock_(dock) {
+    setObjectName(QStringLiteral("dockCollapseBtn"));
     setFixedSize(20, 20);
     setIcon(QIcon(QStringLiteral(":/dock-collapse.svg")));
     setIconSize(QSize(12, 12));
     setAutoRaise(true);
     setCursor(Qt::ArrowCursor);
     setToolTip(QStringLiteral("Свернуть панель"));
-    setStyleSheet(
-        QStringLiteral("QToolButton { background: transparent; border: none; "
-                       "border-radius: 3px; }"
-                       "QToolButton:hover { background-color: #cbd5e1; }"));
     connect(this, &QToolButton::clicked, this, &DockCollapseButton::onToggle);
   }
 
@@ -108,7 +101,7 @@ MainWindow::MainWindow(QWidget *parent)
   setupUiConnections();
   connectScene(scene_);
 
-  // Применение нейтральной приглушенной серой темы
+  // Применение темы из внешнего QSS-файла (src/themes/light.qss)
   applyStrictMinimalistTheme();
 
   updateWindowTitle();
@@ -207,107 +200,7 @@ void MainWindow::updateWindowTitle() {
 }
 
 void MainWindow::applyStrictMinimalistTheme() {
-  // 1. Палитра приложения (Исходный светлый стиль)
-  QPalette palette;
-  palette.setColor(QPalette::Window, QColor(234, 237, 240));        // #eaedf0
-  palette.setColor(QPalette::WindowText, QColor(33, 37, 41));       // #212529
-  palette.setColor(QPalette::Base, QColor(255, 255, 255));          // #ffffff
-  palette.setColor(QPalette::AlternateBase, QColor(241, 243, 245)); // #f1f3f5
-  palette.setColor(QPalette::ToolTipBase, QColor(255, 255, 255));
-  palette.setColor(QPalette::ToolTipText, QColor(33, 37, 41));
-  palette.setColor(QPalette::Text, QColor(33, 37, 41));
-  palette.setColor(QPalette::Button, QColor(241, 243, 245));
-  palette.setColor(QPalette::ButtonText, QColor(33, 37, 41));
-  palette.setColor(QPalette::Highlight, QColor(71, 85, 105)); // #475569
-  palette.setColor(QPalette::HighlightedText, Qt::white);
-  QApplication::setPalette(palette);
-
-  // 2. Исходный светлый QSS
-  setStyleSheet(QStringLiteral(
-      "QMainWindow { background-color: #eaedf0; }"
-
-      "QMenuBar { background-color: #eaedf0; border-bottom: 1px solid #cbd5e1; "
-      "font-size: 12px; color: #334155; padding: 2px 4px; }"
-      "QMenuBar::item { background: transparent; padding: 4px 8px; "
-      "border-radius: 3px; color: #334155; }"
-      "QMenuBar::item:selected { background-color: #cbd5e1; color: #0f172a; }"
-
-      "QMenu { background-color: #ffffff; border: 1px solid #cbd5e1; "
-      "border-radius: 4px; padding: 3px; color: #334155; font-size: 12px; }"
-      "QMenu::item { padding: 5px 22px 5px 12px; border-radius: 3px; color: "
-      "#334155; }"
-      "QMenu::item:selected { background-color: #f1f5f9; color: #0f172a; }"
-      "QMenu::separator { height: 1px; background: #e2e8f0; margin: 3px 6px; }"
-
-      "QToolBar { background-color: #eaedf0; border-bottom: 1px solid #cbd5e1; "
-      "spacing: 4px; padding: 2px 6px; min-height: 30px; }"
-      "QToolBar::separator { width: 1px; background-color: #cbd5e1; margin: "
-      "4px 6px; }"
-      "QToolButton { background: transparent; border: 1px solid transparent; "
-      "border-radius: 3px; padding: 3px 5px; color: #475569; }"
-      "QToolButton:hover { background-color: #cbd5e1; border-color: #94a3b8; "
-      "color: #0f172a; }"
-      "QToolButton:pressed { background-color: #94a3b8; }"
-      "QToolButton:checked { background-color: #cbd5e1; border: 1px solid "
-      "#64748b; color: #0f172a; }"
-
-      "QDockWidget { font-size: 11px; color: #334155; border: 1px solid "
-      "#cbd5e1; }"
-      "#dockCustomTitleBar { background-color: #eaedf0; border-bottom: 1px "
-      "solid #cbd5e1; }"
-
-      "QMainWindow::separator { background-color: #cbd5e1; width: 3px; height: "
-      "3px; }"
-      "QMainWindow::separator:hover { background-color: #94a3b8; }"
-
-      "QTreeWidget { background-color: #ffffff; border: 1px solid #cbd5e1; "
-      "border-radius: 3px; color: #334155; font-size: 11px; outline: none; }"
-      "QTreeWidget::branch { background: transparent; }"
-      "QTreeWidget::branch:selected { background: transparent; }"
-      "QTreeWidget::item { padding: 4px; }"
-      "QTreeWidget::item:hover { background-color: #f1f5f9; }"
-      "QTreeWidget::item:selected { background-color: #e2e8f0; color: #0f172a; "
-      "font-weight: 600; }"
-      "QHeaderView::section { background-color: #eaedf0; border: none; "
-      "border-bottom: 1px solid #cbd5e1; padding: 3px 6px; font-weight: 600; "
-      "color: #475569; font-size: 11px; }"
-
-      "QGroupBox { font-size: 11px; font-weight: 600; color: #475569; border: "
-      "1px solid #cbd5e1; border-radius: 3px; margin-top: 14px; padding-top: "
-      "8px; background-color: #ffffff; }"
-      "QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top "
-      "left; left: 8px; padding: 0 4px; background-color: #ffffff; }"
-
-      "QLabel { color: #475569; font-size: 11px; }"
-      "QLineEdit, QDoubleSpinBox, QSpinBox, QComboBox { background-color: "
-      "#ffffff; border: 1px solid #cbd5e1; border-radius: 3px; padding: 2px "
-      "6px; font-size: 11px; color: #1e293b; }"
-      "QLineEdit:focus, QDoubleSpinBox:focus, QSpinBox:focus, QComboBox:focus "
-      "{ border-color: #64748b; }"
-      "QComboBox::drop-down { border: none; width: 16px; }"
-      "QComboBox QAbstractItemView { background-color: #ffffff; color: "
-      "#1e293b; selection-background-color: #e2e8f0; selection-color: #0f172a; "
-      "border: 1px solid #cbd5e1; }"
-
-      "QPushButton { background-color: #ffffff; border: 1px solid #cbd5e1; "
-      "border-radius: 3px; padding: 4px 8px; font-size: 11px; font-weight: "
-      "500; color: #334155; }"
-      "QPushButton:hover { background-color: #f8fafc; border-color: #94a3b8; }"
-      "QPushButton:pressed { background-color: #e2e8f0; }"
-
-      "QScrollBar:vertical { background: #eaedf0; width: 8px; margin: 0; }"
-      "QScrollBar::handle:vertical { background: #cbd5e1; min-height: 16px; "
-      "border-radius: 4px; }"
-      "QScrollBar::handle:vertical:hover { background: #94a3b8; }"
-      "QScrollBar::horizontal { background: #eaedf0; height: 8px; margin: 0; }"
-      "QScrollBar::handle:horizontal { background: #cbd5e1; min-width: 16px; "
-      "border-radius: 4px; }"
-      "QScrollBar::handle:horizontal:hover { background: #94a3b8; }"
-      "QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }"
-
-      "#scrollArea, #contentWidget { background-color: #eaedf0; border: none; }"
-      "#noSelectionLabel { color: #64748b; font-size: 11px; padding: 24px 0; "
-      "}"));
+  ThemeManager::apply(this, Theme::Light);
 }
 
 void MainWindow::setupUiConnections() {
@@ -406,20 +299,12 @@ void MainWindow::setupUiConnections() {
 
   // Выбор шага сетки в тулбаре прямо возле сетки
   comboGridStep_ = new QComboBox(ui->mainToolBar);
+  comboGridStep_->setObjectName(QStringLiteral("comboGridStep"));
   comboGridStep_->setToolTip(QStringLiteral("Шаг сетки (px)"));
   comboGridStep_->addItem(QStringLiteral("10 px"), 10.0);
   comboGridStep_->addItem(QStringLiteral("20 px"), 20.0);
   comboGridStep_->addItem(QStringLiteral("50 px"), 50.0);
   comboGridStep_->setCurrentIndex(1); // 20 px по умолчанию
-  comboGridStep_->setStyleSheet(QStringLiteral(
-      "QComboBox { background-color: #ffffff; border: 1px solid #cbd5e1; "
-      "border-radius: 3px; padding: 2px 6px; color: #1e293b; font-size: 11px; "
-      "min-width: 60px; height: 20px; }"
-      "QComboBox:hover { border-color: #94a3b8; }"
-      "QComboBox::drop-down { border: none; width: 14px; }"
-      "QComboBox QAbstractItemView { background-color: #ffffff; color: "
-      "#1e293b; selection-background-color: #e2e8f0; selection-color: #0f172a; "
-      "border: 1px solid #cbd5e1; }"));
   connect(comboGridStep_, &QComboBox::currentIndexChanged, this,
           [this](int idx) {
             if (scene_ && comboGridStep_) {
@@ -493,9 +378,7 @@ QWidget *MainWindow::createCustomDockTitleBar(const QString &title,
   layout->setSpacing(2);
 
   QLabel *label = new QLabel(title, titleBar);
-  label->setStyleSheet(
-      QStringLiteral("font-size: 11px; font-weight: 700; color: #334155; "
-                     "letter-spacing: 0.2px;"));
+  label->setObjectName(QStringLiteral("dockTitleLabel"));
   layout->addWidget(label);
   layout->addStretch();
 
@@ -505,15 +388,12 @@ QWidget *MainWindow::createCustomDockTitleBar(const QString &title,
 
   // Кнопка открепления (float)
   auto btnFloat = new QToolButton(titleBar);
+  btnFloat->setObjectName(QStringLiteral("dockFloatBtn"));
   btnFloat->setFixedSize(20, 20);
   btnFloat->setIcon(QIcon(QStringLiteral(":/dock-float.svg")));
   btnFloat->setIconSize(QSize(12, 12));
   btnFloat->setAutoRaise(true);
   btnFloat->setToolTip(QStringLiteral("Открепить окно"));
-  btnFloat->setStyleSheet(
-      QStringLiteral("QToolButton { background: transparent; border: none; "
-                     "border-radius: 3px; }"
-                     "QToolButton:hover { background-color: #cbd5e1; }"));
   connect(btnFloat, &QToolButton::clicked, dock,
           [dock]() { dock->setFloating(!dock->isFloating()); });
   layout->addWidget(btnFloat);

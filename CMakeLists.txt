@@ -68,6 +68,9 @@ set(SOURCES
     src/canvas/undocommands.cpp
 
     src/widgets/smoothcombobox.h
+    src/widgets/smoothscrollarea.h
+    src/widgets/smoothscrollarea.cpp
+    src/themes/thememanager.h
     src/frames/bParamsDialog/data/blockparamsdialog.h
     src/frames/bParamsDialog/data/blockparamsdialog.cpp
     src/frames/eLibraryFrame/data/elementslibraryframe.h

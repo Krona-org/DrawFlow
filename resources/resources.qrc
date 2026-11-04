@@ -29,5 +29,6 @@
         <file>eye-off.svg</file>
         <file>lock.svg</file>
         <file>lock-open.svg</file>
+        <file alias="themes/light.qss">../src/themes/light.qss</file>
     </qresource>
 </RCC>
