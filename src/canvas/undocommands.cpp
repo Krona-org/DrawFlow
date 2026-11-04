@@ -59,35 +59,35 @@ DeleteElementsCommand::DeleteElementsCommand(CanvasScene *scene, const QList<Sha
 {
     setText(QStringLiteral("Удаление элементов (%1)").arg(elements.size()));
     for (ShapeElement *elem : elements_) {
-        if (auto line = dynamic_cast<LineElement*>(elem)) {
-            LineConnInfo info;
-            info.startRect = line->startRect();
-            info.startPort = line->startPort();
-            info.endRect = line->endRect();
-            info.endPort = line->endPort();
-            lineConns_[line] = info;
+        if (auto connector = dynamic_cast<ConnectorElement*>(elem)) {
+            ConnectorConnInfo info;
+            info.startBlock = connector->startBlock();
+            info.startPort = connector->startPort();
+            info.endBlock = connector->endBlock();
+            info.endPort = connector->endPort();
+            connectorConns_[connector] = info;
         }
     }
 
-    // Сохраняем связи внешних линий, присоединенных к удаляемым прямоугольникам
+    // Сохраняем связи внешних коннекторов, присоединенных к удаляемым блокам
     if (scene_) {
         for (QGraphicsItem *item : scene_->items()) {
-            if (auto line = dynamic_cast<LineElement*>(item)) {
-                if (elements_.contains(line)) continue;
+            if (auto connector = dynamic_cast<ConnectorElement*>(item)) {
+                if (elements_.contains(connector)) continue;
                 bool hasConn = false;
                 for (ShapeElement *elem : elements_) {
-                    if (elem == line->startRect() || elem == line->endRect()) {
+                    if (elem == connector->startBlock() || elem == connector->endBlock()) {
                         hasConn = true;
                         break;
                     }
                 }
                 if (hasConn) {
-                    LineConnInfo info;
-                    info.startRect = line->startRect();
-                    info.startPort = line->startPort();
-                    info.endRect = line->endRect();
-                    info.endPort = line->endPort();
-                    externalLineConns_[line] = info;
+                    ConnectorConnInfo info;
+                    info.startBlock = connector->startBlock();
+                    info.startPort = connector->startPort();
+                    info.endBlock = connector->endBlock();
+                    info.endPort = connector->endPort();
+                    externalConnectorConns_[connector] = info;
                 }
             }
         }
@@ -109,21 +109,21 @@ void DeleteElementsCommand::undo() {
             emit scene_->elementAdded(elem);
             elem->setSelected(true);
         }
-        for (auto it = lineConns_.begin(); it != lineConns_.end(); ++it) {
-            LineElement *line = it.key();
-            const LineConnInfo &info = it.value();
-            line->setStartConnection(info.startRect, info.startPort);
-            line->setEndConnection(info.endRect, info.endPort);
+        for (auto it = connectorConns_.begin(); it != connectorConns_.end(); ++it) {
+            ConnectorElement *connector = it.key();
+            const ConnectorConnInfo &info = it.value();
+            connector->setStartConnection(info.startBlock, info.startPort);
+            connector->setEndConnection(info.endBlock, info.endPort);
         }
-        for (auto it = externalLineConns_.begin(); it != externalLineConns_.end(); ++it) {
-            LineElement *line = it.key();
-            const LineConnInfo &info = it.value();
-            line->setStartConnection(info.startRect, info.startPort);
-            line->setEndConnection(info.endRect, info.endPort);
+        for (auto it = externalConnectorConns_.begin(); it != externalConnectorConns_.end(); ++it) {
+            ConnectorElement *connector = it.key();
+            const ConnectorConnInfo &info = it.value();
+            connector->setStartConnection(info.startBlock, info.startPort);
+            connector->setEndConnection(info.endBlock, info.endPort);
         }
         for (ShapeElement *elem : elements_) {
-            if (auto rect = dynamic_cast<RectangleElement*>(elem)) {
-                scene_->updateConnectedLines(rect);
+            if (auto block = dynamic_cast<MasterBlockElement*>(elem)) {
+                scene_->updateConnectedLines(block);
             }
         }
         inScene_ = true;
@@ -132,15 +132,15 @@ void DeleteElementsCommand::undo() {
 
 void DeleteElementsCommand::redo() {
     if (inScene_ && scene_) {
-        // Отсоединяем внешние линии от удаляемых элементов, чтобы не было битых указателей
-        for (auto it = externalLineConns_.begin(); it != externalLineConns_.end(); ++it) {
-            LineElement *line = it.key();
+        // Отсоединяем внешние коннекторы от удаляемых блоков, чтобы не было битых указателей
+        for (auto it = externalConnectorConns_.begin(); it != externalConnectorConns_.end(); ++it) {
+            ConnectorElement *connector = it.key();
             for (ShapeElement *elem : elements_) {
-                if (elem == line->startRect()) {
-                    line->setStartConnection(nullptr, PortPosition::None);
+                if (elem == connector->startBlock()) {
+                    connector->setStartConnection(nullptr, PortPosition::None);
                 }
-                if (elem == line->endRect()) {
-                    line->setEndConnection(nullptr, PortPosition::None);
+                if (elem == connector->endBlock()) {
+                    connector->setEndConnection(nullptr, PortPosition::None);
                 }
             }
         }
@@ -171,8 +171,8 @@ void MoveElementsCommand::undo() {
         ShapeElement *elem = it.key();
         if (elem && elem->scene() == scene_) {
             elem->setPos(it.value());
-            if (auto rect = dynamic_cast<RectangleElement*>(elem)) {
-                scene_->updateConnectedLines(rect);
+            if (auto block = dynamic_cast<MasterBlockElement*>(elem)) {
+                scene_->updateConnectedLines(block);
             }
         }
     }
@@ -184,53 +184,53 @@ void MoveElementsCommand::redo() {
         ShapeElement *elem = it.key();
         if (elem && elem->scene() == scene_) {
             elem->setPos(it.value());
-            if (auto rect = dynamic_cast<RectangleElement*>(elem)) {
-                scene_->updateConnectedLines(rect);
+            if (auto block = dynamic_cast<MasterBlockElement*>(elem)) {
+                scene_->updateConnectedLines(block);
             }
         }
     }
 }
 
-// --- ResizeRectangleCommand ---
-ResizeRectangleCommand::ResizeRectangleCommand(CanvasScene *scene,
-                                               RectangleElement *rect,
-                                               const QPointF &oldPos, const QRectF &oldRect,
-                                               const QPointF &newPos, const QRectF &newRect,
-                                               QUndoCommand *parent)
+// --- ResizeMasterBlockCommand ---
+ResizeMasterBlockCommand::ResizeMasterBlockCommand(CanvasScene *scene,
+                                                   MasterBlockElement *block,
+                                                   const QPointF &oldPos, const QRectF &oldRect,
+                                                   const QPointF &newPos, const QRectF &newRect,
+                                                   QUndoCommand *parent)
     : QUndoCommand(parent)
     , scene_(scene)
-    , rectItem_(rect)
+    , blockItem_(block)
     , oldPos_(oldPos)
     , oldRect_(oldRect)
     , newPos_(newPos)
     , newRect_(newRect)
 {
-    setText(QStringLiteral("Изменение размера: %1").arg(rect ? rect->name() : QString()));
+    setText(QStringLiteral("Изменение размера: %1").arg(block ? block->name() : QString()));
 }
 
-void ResizeRectangleCommand::undo() {
-    if (!scene_ || !rectItem_ || rectItem_->scene() != scene_) return;
-    rectItem_->setPos(oldPos_);
-    rectItem_->setRect(oldRect_);
-    scene_->updateConnectedLines(rectItem_);
+void ResizeMasterBlockCommand::undo() {
+    if (!scene_ || !blockItem_ || blockItem_->scene() != scene_) return;
+    blockItem_->setPos(oldPos_);
+    blockItem_->setRect(oldRect_);
+    scene_->updateConnectedLines(blockItem_);
 }
 
-void ResizeRectangleCommand::redo() {
-    if (!scene_ || !rectItem_ || rectItem_->scene() != scene_) return;
-    rectItem_->setPos(newPos_);
-    rectItem_->setRect(newRect_);
-    scene_->updateConnectedLines(rectItem_);
+void ResizeMasterBlockCommand::redo() {
+    if (!scene_ || !blockItem_ || blockItem_->scene() != scene_) return;
+    blockItem_->setPos(newPos_);
+    blockItem_->setRect(newRect_);
+    scene_->updateConnectedLines(blockItem_);
 }
 
-// --- ResizeLineCommand ---
-ResizeLineCommand::ResizeLineCommand(CanvasScene *scene,
-                                     LineElement *line,
-                                     const QPointF &oldP1, const QPointF &oldP2, const QVector<QPointF> &oldPoints,
-                                     const QPointF &newP1, const QPointF &newP2, const QVector<QPointF> &newPoints,
-                                     QUndoCommand *parent)
+// --- ResizeConnectorCommand ---
+ResizeConnectorCommand::ResizeConnectorCommand(CanvasScene *scene,
+                                               ConnectorElement *connector,
+                                               const QPointF &oldP1, const QPointF &oldP2, const QVector<QPointF> &oldPoints,
+                                               const QPointF &newP1, const QPointF &newP2, const QVector<QPointF> &newPoints,
+                                               QUndoCommand *parent)
     : QUndoCommand(parent)
     , scene_(scene)
-    , lineItem_(line)
+    , connectorItem_(connector)
     , oldP1_(oldP1)
     , oldP2_(oldP2)
     , oldPoints_(oldPoints)
@@ -238,21 +238,21 @@ ResizeLineCommand::ResizeLineCommand(CanvasScene *scene,
     , newP2_(newP2)
     , newPoints_(newPoints)
 {
-    setText(QStringLiteral("Изменение линии: %1").arg(line ? line->name() : QString()));
+    setText(QStringLiteral("Изменение коннектора: %1").arg(connector ? connector->name() : QString()));
 }
 
-void ResizeLineCommand::undo() {
-    if (!scene_ || !lineItem_ || lineItem_->scene() != scene_) return;
-    lineItem_->setP1(oldP1_);
-    lineItem_->setP2(oldP2_);
-    lineItem_->setPoints(oldPoints_);
+void ResizeConnectorCommand::undo() {
+    if (!scene_ || !connectorItem_ || connectorItem_->scene() != scene_) return;
+    connectorItem_->setP1(oldP1_);
+    connectorItem_->setP2(oldP2_);
+    connectorItem_->setPoints(oldPoints_);
 }
 
-void ResizeLineCommand::redo() {
-    if (!scene_ || !lineItem_ || lineItem_->scene() != scene_) return;
-    lineItem_->setP1(newP1_);
-    lineItem_->setP2(newP2_);
-    lineItem_->setPoints(newPoints_);
+void ResizeConnectorCommand::redo() {
+    if (!scene_ || !connectorItem_ || connectorItem_->scene() != scene_) return;
+    connectorItem_->setP1(newP1_);
+    connectorItem_->setP2(newP2_);
+    connectorItem_->setPoints(newPoints_);
 }
 
 } // namespace editor

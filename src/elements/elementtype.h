@@ -6,20 +6,19 @@ namespace editor {
 
 enum class ElementType {
     None = 0,
-    Rectangle,
-    Line
+    MasterBlock,
+    Connector
 };
 
 inline QString elementTypeName(ElementType type) {
     switch (type) {
-    case ElementType::Rectangle:
-        return QStringLiteral("Прямоугольник");
-    case ElementType::Line:
-        return QStringLiteral("Линия");
+    case ElementType::MasterBlock:
+        return QStringLiteral("K1804 MasterBlock");
+    case ElementType::Connector:
+        return QStringLiteral("Connector");
     default:
         return QStringLiteral("Неизвестно");
     }
 }
 
 } // namespace editor
-

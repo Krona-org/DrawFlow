@@ -143,10 +143,10 @@ void CanvasView::dropEvent(QDropEvent *event) {
 
         QPointF scenePos = mapToScene(event->position().toPoint());
 
-        if (typeStr == QStringLiteral("rectangle")) {
-            scene_->addElementAt(ElementType::Rectangle, scenePos);
-        } else if (typeStr == QStringLiteral("line")) {
-            scene_->addElementAt(ElementType::Line, scenePos);
+        if (typeStr == QStringLiteral("masterblock") || typeStr == QStringLiteral("rectangle")) {
+            scene_->addElementAt(ElementType::MasterBlock, scenePos);
+        } else if (typeStr == QStringLiteral("connector") || typeStr == QStringLiteral("line")) {
+            scene_->addElementAt(ElementType::Connector, scenePos);
         }
 
         event->acceptProposedAction();

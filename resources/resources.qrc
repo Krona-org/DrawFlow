@@ -1,5 +1,7 @@
 <RCC>
     <qresource prefix="/">
+        <file>masterblock.svg</file>
+        <file>connector.svg</file>
         <file>rectangle.svg</file>
         <file>line.svg</file>
         <file>new.svg</file>

@@ -32,12 +32,13 @@ set(SOURCES
     src/main.cpp
 
     src/elements/elementtype.h
+    src/elements/portposition.h
     src/elements/shapeelement.h
     src/elements/shapeelement.cpp
-    src/elements/rectangleelement.h
-    src/elements/rectangleelement.cpp
-    src/elements/lineelement.h
-    src/elements/lineelement.cpp
+    src/elements/masterblockelement.h
+    src/elements/masterblockelement.cpp
+    src/elements/connectorelement.h
+    src/elements/connectorelement.cpp
 
     src/canvas/canvasscene.h
     src/canvas/canvasscene.cpp

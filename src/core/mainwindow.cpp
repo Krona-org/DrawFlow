@@ -1,8 +1,8 @@
 #include "mainwindow.h"
 #include "projectstorage.h"
 #include "src/canvas/canvasview.h"
-#include "src/elements/lineelement.h"
-#include "src/elements/rectangleelement.h"
+#include "src/elements/connectorelement.h"
+#include "src/elements/masterblockelement.h"
 #include "ui_mainwindow.h"
 
 #include <QActionGroup>
@@ -276,6 +276,13 @@ void MainWindow::setupUiConnections() {
     connect(ui->actionOpen, &QAction::triggered, this, &MainWindow::onOpenProject);
     connect(ui->actionSave, &QAction::triggered, this, &MainWindow::onSaveProject);
     connect(ui->actionSaveAs, &QAction::triggered, this, &MainWindow::onSaveProjectAs);
+
+    QAction *actionExport = new QAction(QStringLiteral("Экспорт микрокоманд К1804 (*.bin)..."), this);
+    actionExport->setShortcut(QKeySequence(QStringLiteral("Ctrl+E")));
+    ui->menuFile->insertAction(ui->actionExit, actionExport);
+    ui->menuFile->insertSeparator(ui->actionExit);
+    connect(actionExport, &QAction::triggered, this, &MainWindow::onExportBinary);
+
     connect(ui->actionExit, &QAction::triggered, this, &QWidget::close);
 
     // Страницы
@@ -530,6 +537,23 @@ void MainWindow::onSaveProjectAs() {
     } else {
         QMessageBox::critical(this, QStringLiteral("Ошибка сохранения"),
                               QStringLiteral("Не удалось сохранить файл:\n%1").arg(errorMsg));
+    }
+}
+
+void MainWindow::onExportBinary() {
+    QString defaultName = projectName_ + QStringLiteral(".bin");
+    QString fileName = QFileDialog::getSaveFileName(this, QStringLiteral("Экспорт микрокоманд К1804"),
+                                                    defaultName, QStringLiteral("Бинарные файлы микрокоманд (*.bin *.rom);;Все файлы (*.*)"));
+    if (fileName.isEmpty()) return;
+
+    int count = 0;
+    QString errorMsg;
+    if (ProjectStorage::exportK1804Binary(fileName, scene_, &count, &errorMsg)) {
+        QMessageBox::information(this, QStringLiteral("Экспорт завершен"),
+                                 QStringLiteral("Файл данных сформирован. Обработано %1 блоков на текущей странице.").arg(count));
+    } else {
+        QMessageBox::critical(this, QStringLiteral("Ошибка экспорта"),
+                              QStringLiteral("Не удалось экспортировать данные:\n%1").arg(errorMsg));
     }
 }
 

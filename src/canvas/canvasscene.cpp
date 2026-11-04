@@ -12,53 +12,58 @@ namespace editor {
 CanvasScene::SceneClipboard CanvasScene::s_clipboard_;
 
 bool CanvasScene::hasClipboardContent() {
-    return !s_clipboard_.rects.isEmpty() || !s_clipboard_.lines.isEmpty();
+    return !s_clipboard_.blocks.isEmpty() || !s_clipboard_.connectors.isEmpty();
 }
 
 void CanvasScene::copySelection() {
     const auto sel = selectedItems();
     if (sel.isEmpty()) return;
 
-    s_clipboard_.rects.clear();
-    s_clipboard_.lines.clear();
+    s_clipboard_.blocks.clear();
+    s_clipboard_.connectors.clear();
     s_clipboard_.pasteCount = 0;
 
     for (QGraphicsItem *item : sel) {
-        if (auto rect = dynamic_cast<RectangleElement*>(item)) {
-            RectangleClipboardData data;
-            data.originalId = rect->id();
-            data.originalPtr = rect;
-            data.name = rect->name();
-            data.pos = rect->pos();
-            data.rect = rect->rect();
-            data.rounding = rect->rounding();
-            data.borderColor = rect->borderColor();
-            data.borderWidth = rect->borderWidth();
-            data.borderStyle = rect->borderStyle();
-            data.fillColor = rect->fillColor();
-            data.fillStyle = rect->fillStyle();
-            data.zValue = rect->zValue();
-            s_clipboard_.rects.append(data);
-        } else if (auto line = dynamic_cast<LineElement*>(item)) {
-            LineClipboardData data;
-            data.originalId = line->id();
-            data.name = line->name();
-            data.pos = line->pos();
-            data.p1 = line->p1();
-            data.p2 = line->p2();
-            data.points = line->points();
-            data.startRect = line->startRect();
-            data.startPort = line->startPort();
-            data.endRect = line->endRect();
-            data.endPort = line->endPort();
-            data.isOrthogonal = line->isOrthogonal();
-            data.beginMarker = line->beginMarker();
-            data.endMarker = line->endMarker();
-            data.borderColor = line->borderColor();
-            data.borderWidth = line->borderWidth();
-            data.borderStyle = line->borderStyle();
-            data.zValue = line->zValue();
-            s_clipboard_.lines.append(data);
+        if (auto block = dynamic_cast<MasterBlockElement*>(item)) {
+            MasterBlockClipboardData data;
+            data.originalId = block->id();
+            data.originalPtr = block;
+            data.name = block->name();
+            data.pos = block->pos();
+            data.rect = block->rect();
+            data.address = block->address();
+            data.stepName = block->stepName();
+            data.lines = block->allLines();
+            for (int i = 1; i <= 15; ++i) {
+                data.mFields[i] = block->mField(i);
+            }
+            data.borderColor = block->borderColor();
+            data.borderWidth = block->borderWidth();
+            data.borderStyle = block->borderStyle();
+            data.fillColor = block->fillColor();
+            data.fillStyle = block->fillStyle();
+            data.zValue = block->zValue();
+            s_clipboard_.blocks.append(data);
+        } else if (auto conn = dynamic_cast<ConnectorElement*>(item)) {
+            ConnectorClipboardData data;
+            data.originalId = conn->id();
+            data.name = conn->name();
+            data.pos = conn->pos();
+            data.p1 = conn->p1();
+            data.p2 = conn->p2();
+            data.points = conn->points();
+            data.startBlock = conn->startBlock();
+            data.startPort = conn->startPort();
+            data.endBlock = conn->endBlock();
+            data.endPort = conn->endPort();
+            data.isOrthogonal = conn->isOrthogonal();
+            data.beginMarker = conn->beginMarker();
+            data.endMarker = conn->endMarker();
+            data.borderColor = conn->borderColor();
+            data.borderWidth = conn->borderWidth();
+            data.borderStyle = conn->borderStyle();
+            data.zValue = conn->zValue();
+            s_clipboard_.connectors.append(data);
         }
     }
 }
@@ -82,72 +87,77 @@ void CanvasScene::pasteClipboard() {
         undoStack_->beginMacro(QStringLiteral("Вставка элементов"));
     }
 
-    QHash<RectangleElement*, RectangleElement*> oldToNewRect;
+    QHash<MasterBlockElement*, MasterBlockElement*> oldToNewBlock;
 
-    // 1. Создаем копии прямоугольников
-    for (const auto &data : s_clipboard_.rects) {
-        rectangleCount_++;
-        QString name = QStringLiteral("Прямоугольник %1").arg(rectangleCount_);
-        auto newRect = new RectangleElement(nextElementId_++, name, QUuid::createUuid());
-        newRect->setPos(snapPoint(data.pos + offset));
-        newRect->setRect(data.rect);
-        newRect->setRounding(data.rounding);
-        newRect->setBorderColor(data.borderColor);
-        newRect->setBorderWidth(data.borderWidth);
-        newRect->setBorderStyle(data.borderStyle);
-        newRect->setFillColor(data.fillColor);
-        newRect->setFillStyle(data.fillStyle);
-        newRect->setZValue(data.zValue);
+    // 1. Создаем копии блоков K1804 MasterBlock
+    for (const auto &data : s_clipboard_.blocks) {
+        masterBlockCount_++;
+        QString name = QStringLiteral("MasterBlock %1").arg(masterBlockCount_);
+        auto newBlock = new MasterBlockElement(nextElementId_++, name, QUuid::createUuid());
+        newBlock->setPos(snapPoint(data.pos + offset));
+        newBlock->setRect(data.rect);
+        newBlock->setAddress(data.address);
+        newBlock->setStepName(data.stepName);
+        newBlock->setAllLines(data.lines);
+        for (int i = 1; i <= 15; ++i) {
+            newBlock->setMField(i, data.mFields[i]);
+        }
+        newBlock->setBorderColor(data.borderColor);
+        newBlock->setBorderWidth(data.borderWidth);
+        newBlock->setBorderStyle(data.borderStyle);
+        newBlock->setFillColor(data.fillColor);
+        newBlock->setFillStyle(data.fillStyle);
+        newBlock->setZValue(data.zValue);
 
-        oldToNewRect[data.originalPtr] = newRect;
+        oldToNewBlock[data.originalPtr] = newBlock;
         if (undoStack_) {
-            undoStack_->push(new AddElementCommand(this, newRect, false));
+            undoStack_->push(new AddElementCommand(this, newBlock, false));
         } else {
-            addItem(newRect);
-            newRect->setSelected(true);
-            emit elementAdded(newRect);
+            addItem(newBlock);
+            newBlock->setSelected(true);
+            emit elementAdded(newBlock);
         }
     }
 
-    // 2. Создаем копии линий
-    for (const auto &data : s_clipboard_.lines) {
-        lineCount_++;
-        QString name = QStringLiteral("Линия %1").arg(lineCount_);
-        auto newLine = new LineElement(nextElementId_++, name, QUuid::createUuid());
-        newLine->setPos(snapPoint(data.pos + offset));
-        newLine->setP1(data.p1);
-        newLine->setP2(data.p2);
+    // 2. Создаем копии коннекторов
+    for (const auto &data : s_clipboard_.connectors) {
+        connectorCount_++;
+        QString name = QStringLiteral("Connector %1").arg(connectorCount_);
+        auto newConn = new ConnectorElement(nextElementId_++, name, QUuid::createUuid());
+        newConn->setPos(snapPoint(data.pos + offset));
+        newConn->setP1(data.p1);
+        newConn->setP2(data.p2);
 
         QVector<QPointF> newPts;
         for (const QPointF &pt : data.points) {
             newPts.append(pt + offset);
         }
-        newLine->setPoints(newPts);
+        newConn->setPoints(newPts);
 
-        newLine->setBeginMarker(data.beginMarker);
-        newLine->setEndMarker(data.endMarker);
-        newLine->setBorderColor(data.borderColor);
-        newLine->setBorderWidth(data.borderWidth);
-        newLine->setBorderStyle(data.borderStyle);
-        newLine->setZValue(data.zValue);
+        newConn->setBeginMarker(data.beginMarker);
+        newConn->setEndMarker(data.endMarker);
+        newConn->setBorderColor(data.borderColor);
+        newConn->setBorderWidth(data.borderWidth);
+        newConn->setBorderStyle(data.borderStyle);
+        newConn->setZValue(data.zValue);
 
-        // Восстанавливаем привязки, если соединенные прямоугольники также скопированы
-        RectangleElement *mappedStart = oldToNewRect.value(data.startRect, nullptr);
-        RectangleElement *mappedEnd = oldToNewRect.value(data.endRect, nullptr);
+        // Восстанавливаем привязки, если соединенные блоки также скопированы
+        MasterBlockElement *mappedStart = oldToNewBlock.value(data.startBlock, nullptr);
+        MasterBlockElement *mappedEnd = oldToNewBlock.value(data.endBlock, nullptr);
 
         if (mappedStart) {
-            newLine->setStartConnection(mappedStart, data.startPort);
+            newConn->setStartConnection(mappedStart, data.startPort);
         }
         if (mappedEnd) {
-            newLine->setEndConnection(mappedEnd, data.endPort);
+            newConn->setEndConnection(mappedEnd, data.endPort);
         }
 
         if (undoStack_) {
-            undoStack_->push(new AddElementCommand(this, newLine, false));
+            undoStack_->push(new AddElementCommand(this, newConn, false));
         } else {
-            addItem(newLine);
-            newLine->setSelected(true);
-            emit elementAdded(newLine);
+            addItem(newConn);
+            newConn->setSelected(true);
+            emit elementAdded(newConn);
         }
     }
 
@@ -155,8 +165,8 @@ void CanvasScene::pasteClipboard() {
         undoStack_->endMacro();
     }
 
-    // 4. Обновляем маршруты связанных линий
-    for (auto it = oldToNewRect.begin(); it != oldToNewRect.end(); ++it) {
+    // 3. Обновляем маршруты связанных коннекторов
+    for (auto it = oldToNewBlock.begin(); it != oldToNewBlock.end(); ++it) {
         updateConnectedLines(it.value());
     }
 }
@@ -261,74 +271,75 @@ QList<QRectF> CanvasScene::obstacleRects(const QGraphicsItem *exclude1, const QG
     QList<QRectF> obstacles;
     for (QGraphicsItem *item : items()) {
         if (item == exclude1 || item == exclude2) continue;
-        if (auto rect = dynamic_cast<RectangleElement*>(item)) {
-            // Используем фактическую физическую геометрию прямоугольника на сцене (без отступов для хэндлов)
-            obstacles.append(rect->mapRectToScene(rect->rect()));
+        if (auto block = dynamic_cast<MasterBlockElement*>(item)) {
+            // Используем физическую геометрию блока на сцене
+            obstacles.append(block->mapRectToScene(block->rect()));
         }
     }
     return obstacles;
 }
 
-QPair<RectangleElement*, PortPosition> CanvasScene::findPortAt(const QPointF &scenePos, RectangleElement *exclude, qreal maxDist) const {
-    RectangleElement *bestRect = nullptr;
+QPair<MasterBlockElement*, PortPosition> CanvasScene::findPortAt(const QPointF &scenePos, MasterBlockElement *exclude, qreal maxDist) const {
+    MasterBlockElement *bestBlock = nullptr;
     PortPosition bestPort = PortPosition::None;
     qreal bestDist = maxDist;
 
     for (QGraphicsItem *item : items()) {
         if (item == exclude) continue;
-        if (auto rect = dynamic_cast<RectangleElement*>(item)) {
+        if (auto block = dynamic_cast<MasterBlockElement*>(item)) {
             const PortPosition ports[] = {
-                PortPosition::Top,
-                PortPosition::Right,
-                PortPosition::Bottom,
-                PortPosition::Left
+                PortPosition::InTop,
+                PortPosition::InMid,
+                PortPosition::InBot,
+                PortPosition::OutTop,
+                PortPosition::OutMid,
+                PortPosition::OutBot
             };
             for (PortPosition p : ports) {
-                QPointF pPos = rect->portScenePos(p);
+                QPointF pPos = block->portScenePos(p);
                 qreal dist = std::hypot(pPos.x() - scenePos.x(), pPos.y() - scenePos.y());
                 if (dist < bestDist) {
                     bestDist = dist;
-                    bestRect = rect;
+                    bestBlock = block;
                     bestPort = p;
                 }
             }
         }
     }
-
-    return {bestRect, bestPort};
+    return { bestBlock, bestPort };
 }
 
 void CanvasScene::setConnectingMode(bool connecting) {
     for (QGraphicsItem *item : items()) {
-        if (auto rect = dynamic_cast<RectangleElement*>(item)) {
-            rect->setShowPortsAlways(connecting);
+        if (auto block = dynamic_cast<MasterBlockElement*>(item)) {
+            block->setShowPortsAlways(connecting);
         }
     }
 }
 
-void CanvasScene::updateConnectedLines(RectangleElement *rect) {
-    if (!rect) return;
+void CanvasScene::updateConnectedLines(MasterBlockElement *block) {
+    if (!block) return;
 
     for (QGraphicsItem *item : items()) {
-        if (auto line = dynamic_cast<LineElement*>(item)) {
-            if (line->startRect() == rect || line->endRect() == rect) {
-                QPointF startPt = line->p1();
+        if (auto conn = dynamic_cast<ConnectorElement*>(item)) {
+            if (conn->startBlock() == block || conn->endBlock() == block) {
+                QPointF startPt = conn->p1();
                 QPointF startNorm(0, 0);
-                if (line->startRect()) {
-                    startPt = line->startRect()->portScenePos(line->startPort());
-                    startNorm = line->startRect()->portNormal(line->startPort());
+                if (conn->startBlock()) {
+                    startPt = conn->startBlock()->portScenePos(conn->startPort());
+                    startNorm = conn->startBlock()->portNormal(conn->startPort());
                 }
 
-                QPointF endPt = line->p2();
+                QPointF endPt = conn->p2();
                 QPointF endNorm(0, 0);
-                if (line->endRect()) {
-                    endPt = line->endRect()->portScenePos(line->endPort());
-                    endNorm = line->endRect()->portNormal(line->endPort());
+                if (conn->endBlock()) {
+                    endPt = conn->endBlock()->portScenePos(conn->endPort());
+                    endNorm = conn->endBlock()->portNormal(conn->endPort());
                 }
 
                 auto obstacles = obstacleRects();
                 QVector<QPointF> route = OrthogonalRouter::route(startPt, startNorm, endPt, endNorm, obstacles, 18.0);
-                line->setPoints(route);
+                conn->setPoints(route);
             }
         }
     }
@@ -337,35 +348,37 @@ void CanvasScene::updateConnectedLines(RectangleElement *rect) {
 ShapeElement* CanvasScene::addElementAt(ElementType type, const QPointF &scenePos) {
     QPointF pos = snapPoint(scenePos);
 
-    if (type == ElementType::Rectangle) {
-        rectangleCount_++;
-        QString name = QStringLiteral("Прямоугольник %1").arg(rectangleCount_);
-        auto rectItem = new RectangleElement(nextElementId_++, name, QUuid::createUuid());
-        rectItem->setPos(pos);
-        rectItem->setRect(QRectF(0, 0, 120, 80));
+    if (type == ElementType::MasterBlock) {
+        masterBlockCount_++;
+        QString name = QStringLiteral("MasterBlock %1").arg(masterBlockCount_);
+        auto blockItem = new MasterBlockElement(nextElementId_++, name, QUuid::createUuid());
+        blockItem->setPos(pos);
+        blockItem->setAddress(static_cast<quint16>(masterBlockCount_));
+        blockItem->setStepName(QString::number(masterBlockCount_));
+        blockItem->setRect(QRectF(0, 0, 180, 110));
         if (undoStack_) {
-            undoStack_->push(new AddElementCommand(this, rectItem, false));
+            undoStack_->push(new AddElementCommand(this, blockItem, false));
         } else {
-            addItem(rectItem);
-            rectItem->setSelected(true);
-            emit elementAdded(rectItem);
+            addItem(blockItem);
+            blockItem->setSelected(true);
+            emit elementAdded(blockItem);
         }
-        return rectItem;
-    } else if (type == ElementType::Line) {
-        lineCount_++;
-        QString name = QStringLiteral("Линия %1").arg(lineCount_);
-        auto lineItem = new LineElement(nextElementId_++, name, QUuid::createUuid());
-        lineItem->setPos(0, 0);
-        lineItem->setP1(pos);
-        lineItem->setP2(pos + QPointF(120, 60));
+        return blockItem;
+    } else if (type == ElementType::Connector) {
+        connectorCount_++;
+        QString name = QStringLiteral("Connector %1").arg(connectorCount_);
+        auto connItem = new ConnectorElement(nextElementId_++, name, QUuid::createUuid());
+        connItem->setPos(0, 0);
+        connItem->setP1(pos);
+        connItem->setP2(pos + QPointF(120, 60));
         if (undoStack_) {
-            undoStack_->push(new AddElementCommand(this, lineItem, false));
+            undoStack_->push(new AddElementCommand(this, connItem, false));
         } else {
-            addItem(lineItem);
-            lineItem->setSelected(true);
-            emit elementAdded(lineItem);
+            addItem(connItem);
+            connItem->setSelected(true);
+            emit elementAdded(connItem);
         }
-        return lineItem;
+        return connItem;
     }
     return nullptr;
 }
@@ -397,8 +410,8 @@ void CanvasScene::clearAll() {
         undoStack_->clear();
     }
     nextElementId_ = 1;
-    rectangleCount_ = 0;
-    lineCount_ = 0;
+    masterBlockCount_ = 0;
+    connectorCount_ = 0;
 }
 
 void CanvasScene::drawBackground(QPainter *painter, const QRectF &rect) {
@@ -448,26 +461,27 @@ void CanvasScene::drawBackground(QPainter *painter, const QRectF &rect) {
         qreal startY = std::floor(top / effectiveStep) * effectiveStep;
 
         for (qreal x = startX; x <= right; x += effectiveStep) {
-            majorLines.append(QLineF(x, top, x, bottom));
+            minorLines.append(QLineF(x, top, x, bottom));
         }
         for (qreal y = startY; y <= bottom; y += effectiveStep) {
-            majorLines.append(QLineF(left, y, right, y));
+            minorLines.append(QLineF(left, y, right, y));
         }
     } else {
         qreal startX = std::floor(left / gridSize_) * gridSize_;
         qreal startY = std::floor(top / gridSize_) * gridSize_;
 
         for (qreal x = startX; x <= right; x += gridSize_) {
-            long long lineIdx = std::llround(x / gridSize_);
-            if (lineIdx % majorInterval == 0) {
+            int gridIndex = (int)std::round(x / gridSize_);
+            if (gridIndex % majorInterval == 0) {
                 majorLines.append(QLineF(x, top, x, bottom));
             } else {
                 minorLines.append(QLineF(x, top, x, bottom));
             }
         }
+
         for (qreal y = startY; y <= bottom; y += gridSize_) {
-            long long lineIdx = std::llround(y / gridSize_);
-            if (lineIdx % majorInterval == 0) {
+            int gridIndex = (int)std::round(y / gridSize_);
+            if (gridIndex % majorInterval == 0) {
                 majorLines.append(QLineF(left, y, right, y));
             } else {
                 minorLines.append(QLineF(left, y, right, y));
@@ -484,15 +498,6 @@ void CanvasScene::drawBackground(QPainter *painter, const QRectF &rect) {
         painter->drawLines(majorLines.constData(), majorLines.size());
     }
 
-    QRectF pr = pageRect();
-    if (pageFormat_ != PageFormat::Infinite && !pr.isEmpty()) {
-        QPen pageBorderPen(QColor(190, 200, 215), 1.0, Qt::DashLine);
-        pageBorderPen.setCosmetic(true);
-        painter->setPen(pageBorderPen);
-        painter->setBrush(Qt::NoBrush);
-        painter->drawRect(pr);
-    }
-
     painter->restore();
 }
 
@@ -505,13 +510,13 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
                 ResizeHandle h = shape->handleAt(localPos);
                 if (h != ResizeHandle::None) {
                     preResizeShape_ = shape;
-                    if (auto rect = dynamic_cast<RectangleElement*>(shape)) {
-                        preResizePos_ = rect->pos();
-                        preResizeRect_ = rect->rect();
-                    } else if (auto line = dynamic_cast<LineElement*>(shape)) {
-                        preResizeP1_ = line->p1();
-                        preResizeP2_ = line->p2();
-                        preResizePoints_ = line->points();
+                    if (auto block = dynamic_cast<MasterBlockElement*>(shape)) {
+                        preResizePos_ = block->pos();
+                        preResizeRect_ = block->rect();
+                    } else if (auto conn = dynamic_cast<ConnectorElement*>(shape)) {
+                        preResizeP1_ = conn->p1();
+                        preResizeP2_ = conn->p2();
+                        preResizePoints_ = conn->points();
                     }
                     preMovePositions_.clear();
 
@@ -522,31 +527,30 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
             }
         }
 
-        // 2. Ведение линии от порта прямоугольника:
+        // 2. Ведение коннектора от порта блока MasterBlock:
         // Срабатывает только при наведении на порт невыделенного объекта
         auto portMatch = findPortAt(event->scenePos(), nullptr, 14.0);
         if (portMatch.first != nullptr && portMatch.second != PortPosition::None && !portMatch.first->isSelected()) {
             clearSelection();
             isConnectingFromPort_ = true;
-            connectStartRect_ = portMatch.first;
+            connectStartBlock_ = portMatch.first;
             connectStartPort_ = portMatch.second;
 
-            // Включаем отображение портов для примагничивания на ВСЕХ прямоугольниках
+            // Включаем отображение портов для примагничивания на ВСЕХ блоках
             setConnectingMode(true);
 
-            lineCount_++;
-            QString name = QStringLiteral("Линия %1").arg(lineCount_);
-            currentCreatingLine_ = new LineElement(nextElementId_++, name, QUuid::createUuid());
-            currentCreatingLine_->setPos(0, 0);
-            currentCreatingLine_->setStartConnection(connectStartRect_, connectStartPort_);
-            currentCreatingLine_->setEndMarker(LineMarkerType::Arrow);
+            connectorCount_++;
+            QString name = QStringLiteral("Connector %1").arg(connectorCount_);
+            currentCreatingConnector_ = new ConnectorElement(nextElementId_++, name, QUuid::createUuid());
+            currentCreatingConnector_->setPos(0, 0);
+            currentCreatingConnector_->setStartConnection(connectStartBlock_, connectStartPort_);
 
-            QPointF startPt = connectStartRect_->portScenePos(connectStartPort_);
-            QPointF norm = connectStartRect_->portNormal(connectStartPort_);
+            QPointF startPt = connectStartBlock_->portScenePos(connectStartPort_);
+            QPointF norm = connectStartBlock_->portNormal(connectStartPort_);
             QVector<QPointF> initPts = { startPt, startPt + norm * 20.0 };
-            currentCreatingLine_->setPoints(initPts);
+            currentCreatingConnector_->setPoints(initPts);
 
-            addItem(currentCreatingLine_);
+            addItem(currentCreatingConnector_);
             event->accept();
             return;
         }
@@ -557,23 +561,25 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
             isCreating_ = true;
             createStartPos_ = snapPoint(event->scenePos());
 
-            if (activeTool_ == ElementType::Rectangle) {
-                rectangleCount_++;
-                QString name = QStringLiteral("Прямоугольник %1").arg(rectangleCount_);
-                auto rectItem = new RectangleElement(nextElementId_++, name, QUuid::createUuid());
-                rectItem->setPos(createStartPos_);
-                rectItem->setRect(QRectF(0, 0, 1, 1));
-                addItem(rectItem);
-                currentCreatingElement_ = rectItem;
-            } else if (activeTool_ == ElementType::Line) {
-                lineCount_++;
-                QString name = QStringLiteral("Линия %1").arg(lineCount_);
-                auto lineItem = new LineElement(nextElementId_++, name, QUuid::createUuid());
-                lineItem->setPos(0, 0);
-                lineItem->setP1(createStartPos_);
-                lineItem->setP2(createStartPos_ + QPointF(1, 1));
-                addItem(lineItem);
-                currentCreatingElement_ = lineItem;
+            if (activeTool_ == ElementType::MasterBlock) {
+                masterBlockCount_++;
+                QString name = QStringLiteral("MasterBlock %1").arg(masterBlockCount_);
+                auto blockItem = new MasterBlockElement(nextElementId_++, name, QUuid::createUuid());
+                blockItem->setPos(createStartPos_);
+                blockItem->setAddress(static_cast<quint16>(masterBlockCount_));
+                blockItem->setStepName(QString::number(masterBlockCount_));
+                blockItem->setRect(QRectF(0, 0, 180, 110));
+                addItem(blockItem);
+                currentCreatingElement_ = blockItem;
+            } else if (activeTool_ == ElementType::Connector) {
+                connectorCount_++;
+                QString name = QStringLiteral("Connector %1").arg(connectorCount_);
+                auto connItem = new ConnectorElement(nextElementId_++, name, QUuid::createUuid());
+                connItem->setPos(0, 0);
+                connItem->setP1(createStartPos_);
+                connItem->setP2(createStartPos_ + QPointF(1, 1));
+                addItem(connItem);
+                currentCreatingElement_ = connItem;
             }
 
             event->accept();
@@ -594,49 +600,49 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
         preResizeShape_ = nullptr;
         if (selectedItems().size() == 1) {
             ShapeElement *sel = dynamic_cast<ShapeElement*>(selectedItems().first());
-            if (auto rect = dynamic_cast<RectangleElement*>(sel)) {
-                preResizeShape_ = rect;
-                preResizePos_ = rect->pos();
-                preResizeRect_ = rect->rect();
-            } else if (auto line = dynamic_cast<LineElement*>(sel)) {
-                preResizeShape_ = line;
-                preResizeP1_ = line->p1();
-                preResizeP2_ = line->p2();
-                preResizePoints_ = line->points();
+            if (auto block = dynamic_cast<MasterBlockElement*>(sel)) {
+                preResizeShape_ = block;
+                preResizePos_ = block->pos();
+                preResizeRect_ = block->rect();
+            } else if (auto conn = dynamic_cast<ConnectorElement*>(sel)) {
+                preResizeShape_ = conn;
+                preResizeP1_ = conn->p1();
+                preResizeP2_ = conn->p2();
+                preResizePoints_ = conn->points();
             }
         }
     }
 }
 
 void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
-    // А. Ведение линии от порта прямоугольника
-    if (isConnectingFromPort_ && currentCreatingLine_ != nullptr) {
+    // А. Ведение коннектора от порта блока
+    if (isConnectingFromPort_ && currentCreatingConnector_ != nullptr) {
         QPointF curPos = event->scenePos();
 
-        // Проверяем привязку к порту любого прямоугольника (кроме того же самого исходного порта)
+        // Проверяем привязку к порту любого блока (кроме того же самого исходного порта)
         auto targetMatch = findPortAt(curPos, nullptr);
-        if (targetMatch.first == connectStartRect_ && targetMatch.second == connectStartPort_) {
+        if (targetMatch.first == connectStartBlock_ && targetMatch.second == connectStartPort_) {
             targetMatch = { nullptr, PortPosition::None };
         }
 
         QPointF targetPt = curPos;
         QPointF targetNormal(0, 0);
-        RectangleElement *targetRect = targetMatch.first;
+        MasterBlockElement *targetBlock = targetMatch.first;
         PortPosition targetPort = targetMatch.second;
 
-        if (targetRect && targetPort != PortPosition::None) {
-            if (lastHoveredRect_ && lastHoveredRect_ != targetRect) {
-                lastHoveredRect_->setHoveredPort(PortPosition::None);
+        if (targetBlock && targetPort != PortPosition::None) {
+            if (lastHoveredBlock_ && lastHoveredBlock_ != targetBlock) {
+                lastHoveredBlock_->setHoveredPort(PortPosition::None);
             }
-            targetPt = targetRect->portScenePos(targetPort);
-            targetNormal = targetRect->portNormal(targetPort);
-            targetRect->setHoveredPort(targetPort);
-            lastHoveredRect_ = targetRect;
+            targetPt = targetBlock->portScenePos(targetPort);
+            targetNormal = targetBlock->portNormal(targetPort);
+            targetBlock->setHoveredPort(targetPort);
+            lastHoveredBlock_ = targetBlock;
             lastHoveredPort_ = targetPort;
         } else {
-            if (lastHoveredRect_) {
-                lastHoveredRect_->setHoveredPort(PortPosition::None);
-                lastHoveredRect_ = nullptr;
+            if (lastHoveredBlock_) {
+                lastHoveredBlock_->setHoveredPort(PortPosition::None);
+                lastHoveredBlock_ = nullptr;
                 lastHoveredPort_ = PortPosition::None;
             }
             if (snapToGrid_ && gridSize_ > 1.0) {
@@ -644,13 +650,13 @@ void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
             }
         }
 
-        QPointF startPt = connectStartRect_->portScenePos(connectStartPort_);
-        QPointF startNorm = connectStartRect_->portNormal(connectStartPort_);
+        QPointF startPt = connectStartBlock_->portScenePos(connectStartPort_);
+        QPointF startNorm = connectStartBlock_->portNormal(connectStartPort_);
 
         auto obstacles = obstacleRects();
         QVector<QPointF> route = OrthogonalRouter::route(startPt, startNorm, targetPt, targetNormal, obstacles, 18.0);
-        currentCreatingLine_->setPoints(route);
-        currentCreatingLine_->setEndConnection(targetRect, targetPort);
+        currentCreatingConnector_->setPoints(route);
+        currentCreatingConnector_->setEndConnection(targetBlock, targetPort);
 
         event->accept();
         return;
@@ -661,15 +667,15 @@ void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
         QPointF curPos = snapPoint(event->scenePos());
         QPointF delta = curPos - createStartPos_;
 
-        if (auto rectItem = dynamic_cast<RectangleElement*>(currentCreatingElement_)) {
+        if (auto blockItem = dynamic_cast<MasterBlockElement*>(currentCreatingElement_)) {
             qreal x = delta.x() >= 0 ? createStartPos_.x() : curPos.x();
             qreal y = delta.y() >= 0 ? createStartPos_.y() : curPos.y();
             qreal w = std::abs(delta.x());
             qreal h = std::abs(delta.y());
-            rectItem->setPos(x, y);
-            rectItem->setRect(QRectF(0, 0, qMax(10.0, w), qMax(10.0, h)));
-        } else if (auto lineItem = dynamic_cast<LineElement*>(currentCreatingElement_)) {
-            lineItem->setP2(curPos);
+            blockItem->setPos(x, y);
+            blockItem->setRect(QRectF(0, 0, qMax(120.0, w), qMax(80.0, h)));
+        } else if (auto connItem = dynamic_cast<ConnectorElement*>(currentCreatingElement_)) {
+            connItem->setP2(curPos);
         }
 
         event->accept();
@@ -678,46 +684,46 @@ void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
 
     QGraphicsScene::mouseMoveEvent(event);
 
-    // Если перемещается выбранный прямоугольник, обновляем связанные линии
+    // Если перемещается выбранный блок, обновляем связанные линии
     auto sel = selectedElement();
-    if (sel && sel->elementType() == ElementType::Rectangle) {
-        updateConnectedLines(dynamic_cast<RectangleElement*>(sel));
+    if (sel && sel->elementType() == ElementType::MasterBlock) {
+        updateConnectedLines(dynamic_cast<MasterBlockElement*>(sel));
     }
 }
 
 void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
-    // Завершение ведения линии от порта
-    if (isConnectingFromPort_ && currentCreatingLine_ != nullptr) {
+    // Завершение ведения коннектора от порта
+    if (isConnectingFromPort_ && currentCreatingConnector_ != nullptr) {
         isConnectingFromPort_ = false;
         setConnectingMode(false);
 
-        if (lastHoveredRect_) {
-            lastHoveredRect_->setHoveredPort(PortPosition::None);
-            lastHoveredRect_ = nullptr;
+        if (lastHoveredBlock_) {
+            lastHoveredBlock_->setHoveredPort(PortPosition::None);
+            lastHoveredBlock_ = nullptr;
             lastHoveredPort_ = PortPosition::None;
         }
 
-        bool isUnconnected = (currentCreatingLine_->endRect() == nullptr);
+        bool isUnconnected = (currentCreatingConnector_->endBlock() == nullptr);
         qreal totalLen = 0.0;
-        const auto &pts = currentCreatingLine_->points();
+        const auto &pts = currentCreatingConnector_->points();
         for (int i = 0; i < pts.size() - 1; ++i) {
             totalLen += std::hypot(pts[i + 1].x() - pts[i].x(), pts[i + 1].y() - pts[i].y());
         }
 
         if (pts.size() >= 2 && (!isUnconnected || totalLen >= 25.0)) {
-            currentCreatingLine_->setSelected(true);
+            currentCreatingConnector_->setSelected(true);
             if (undoStack_) {
-                undoStack_->push(new AddElementCommand(this, currentCreatingLine_, true));
+                undoStack_->push(new AddElementCommand(this, currentCreatingConnector_, true));
             } else {
-                emit elementAdded(currentCreatingLine_);
+                emit elementAdded(currentCreatingConnector_);
             }
         } else {
-            removeItem(currentCreatingLine_);
-            delete currentCreatingLine_;
+            removeItem(currentCreatingConnector_);
+            delete currentCreatingConnector_;
         }
 
-        currentCreatingLine_ = nullptr;
-        connectStartRect_ = nullptr;
+        currentCreatingConnector_ = nullptr;
+        connectStartBlock_ = nullptr;
         connectStartPort_ = PortPosition::None;
 
         event->accept();
@@ -728,13 +734,13 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
     if (isCreating_ && currentCreatingElement_ != nullptr) {
         isCreating_ = false;
 
-        if (auto rectItem = dynamic_cast<RectangleElement*>(currentCreatingElement_)) {
-            if (rectItem->rect().width() < 15.0 || rectItem->rect().height() < 15.0) {
-                rectItem->setRect(QRectF(0, 0, 120, 80));
+        if (auto blockItem = dynamic_cast<MasterBlockElement*>(currentCreatingElement_)) {
+            if (blockItem->rect().width() < 25.0 || blockItem->rect().height() < 25.0) {
+                blockItem->setRect(QRectF(0, 0, 180, 110));
             }
-        } else if (auto lineItem = dynamic_cast<LineElement*>(currentCreatingElement_)) {
-            if (QLineF(lineItem->p1(), lineItem->p2()).length() < 15.0) {
-                lineItem->setP2(lineItem->p1() + QPointF(120, 60));
+        } else if (auto connItem = dynamic_cast<ConnectorElement*>(currentCreatingElement_)) {
+            if (QLineF(connItem->p1(), connItem->p2()).length() < 15.0) {
+                connItem->setP2(connItem->p1() + QPointF(120, 60));
             }
         }
 
@@ -755,25 +761,25 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
     QGraphicsScene::mouseReleaseEvent(event);
 
     auto sel = selectedElement();
-    if (sel && sel->elementType() == ElementType::Rectangle) {
-        updateConnectedLines(dynamic_cast<RectangleElement*>(sel));
+    if (sel && sel->elementType() == ElementType::MasterBlock) {
+        updateConnectedLines(dynamic_cast<MasterBlockElement*>(sel));
     }
 
     // Проверяем изменение размера или перемещение
     if (preResizeShape_ && preResizeShape_->scene() == this) {
-        if (auto rect = dynamic_cast<RectangleElement*>(preResizeShape_)) {
-            if (rect->pos() != preResizePos_ || rect->rect() != preResizeRect_) {
+        if (auto block = dynamic_cast<MasterBlockElement*>(preResizeShape_)) {
+            if (block->pos() != preResizePos_ || block->rect() != preResizeRect_) {
                 if (undoStack_) {
-                    undoStack_->push(new ResizeRectangleCommand(this, rect, preResizePos_, preResizeRect_, rect->pos(), rect->rect()));
+                    undoStack_->push(new ResizeMasterBlockCommand(this, block, preResizePos_, preResizeRect_, block->pos(), block->rect()));
                 }
                 preResizeShape_ = nullptr;
                 preMovePositions_.clear();
                 return;
             }
-        } else if (auto line = dynamic_cast<LineElement*>(preResizeShape_)) {
-            if (line->p1() != preResizeP1_ || line->p2() != preResizeP2_ || line->points() != preResizePoints_) {
+        } else if (auto conn = dynamic_cast<ConnectorElement*>(preResizeShape_)) {
+            if (conn->p1() != preResizeP1_ || conn->p2() != preResizeP2_ || conn->points() != preResizePoints_) {
                 if (undoStack_) {
-                    undoStack_->push(new ResizeLineCommand(this, line, preResizeP1_, preResizeP2_, preResizePoints_, line->p1(), line->p2(), line->points()));
+                    undoStack_->push(new ResizeConnectorCommand(this, conn, preResizeP1_, preResizeP2_, preResizePoints_, conn->p1(), conn->p2(), conn->points()));
                 }
                 preResizeShape_ = nullptr;
                 preMovePositions_.clear();
@@ -855,17 +861,17 @@ void CanvasScene::keyPressEvent(QKeyEvent *event) {
         return;
     }
     if (event->key() == Qt::Key_Escape) {
-        if (isConnectingFromPort_ && currentCreatingLine_ != nullptr) {
+        if (isConnectingFromPort_ && currentCreatingConnector_ != nullptr) {
             isConnectingFromPort_ = false;
             setConnectingMode(false);
-            if (lastHoveredRect_) {
-                lastHoveredRect_->setHoveredPort(PortPosition::None);
-                lastHoveredRect_ = nullptr;
+            if (lastHoveredBlock_) {
+                lastHoveredBlock_->setHoveredPort(PortPosition::None);
+                lastHoveredBlock_ = nullptr;
             }
-            removeItem(currentCreatingLine_);
-            delete currentCreatingLine_;
-            currentCreatingLine_ = nullptr;
-            connectStartRect_ = nullptr;
+            removeItem(currentCreatingConnector_);
+            delete currentCreatingConnector_;
+            currentCreatingConnector_ = nullptr;
+            connectStartBlock_ = nullptr;
         }
         setActiveTool(ElementType::None);
         clearSelection();

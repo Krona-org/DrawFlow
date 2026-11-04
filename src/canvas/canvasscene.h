@@ -1,8 +1,9 @@
 #pragma once
 
+#include "src/elements/connectorelement.h"
 #include "src/elements/elementtype.h"
-#include "src/elements/lineelement.h"
-#include "src/elements/rectangleelement.h"
+#include "src/elements/masterblockelement.h"
+#include "src/elements/portposition.h"
 #include "src/elements/shapeelement.h"
 
 #include <QGraphicsScene>
@@ -59,9 +60,9 @@ public:
   // Маршрутизация и обновление связанных линий
   QList<QRectF> obstacleRects(const QGraphicsItem *exclude1 = nullptr,
                               const QGraphicsItem *exclude2 = nullptr) const;
-  void updateConnectedLines(RectangleElement *rect);
-  QPair<RectangleElement *, PortPosition>
-  findPortAt(const QPointF &scenePos, RectangleElement *exclude = nullptr,
+  void updateConnectedLines(MasterBlockElement *block);
+  QPair<MasterBlockElement *, PortPosition>
+  findPortAt(const QPointF &scenePos, MasterBlockElement *exclude = nullptr,
              qreal maxDist = 24.0) const;
   void setConnectingMode(bool connecting);
 
@@ -92,22 +93,25 @@ private:
   QPointF createStartPos_;
   ShapeElement *currentCreatingElement_ = nullptr;
 
-  // Режим ведения линии от порта прямоугольника
+  // Режим ведения коннектора от порта блока
   bool isConnectingFromPort_ = false;
-  RectangleElement *connectStartRect_ = nullptr;
+  MasterBlockElement *connectStartBlock_ = nullptr;
   PortPosition connectStartPort_ = PortPosition::None;
-  LineElement *currentCreatingLine_ = nullptr;
+  ConnectorElement *currentCreatingConnector_ = nullptr;
 
-  RectangleElement *lastHoveredRect_ = nullptr;
+  MasterBlockElement *lastHoveredBlock_ = nullptr;
   PortPosition lastHoveredPort_ = PortPosition::None;
 
-  struct RectangleClipboardData {
+  struct MasterBlockClipboardData {
     quint32 originalId = 0;
-    RectangleElement *originalPtr = nullptr;
+    MasterBlockElement *originalPtr = nullptr;
     QString name;
     QPointF pos;
     QRectF rect;
-    qreal rounding = 0.0;
+    quint16 address = 1;
+    QString stepName;
+    std::array<QString, 6> lines;
+    std::array<quint16, 16> mFields{};
     QColor borderColor;
     qreal borderWidth = 1.5;
     Qt::PenStyle borderStyle = Qt::SolidLine;
@@ -116,29 +120,29 @@ private:
     qreal zValue = 0.0;
   };
 
-  struct LineClipboardData {
+  struct ConnectorClipboardData {
     quint32 originalId = 0;
     QString name;
     QPointF pos;
     QPointF p1;
     QPointF p2;
     QVector<QPointF> points;
-    RectangleElement *startRect = nullptr;
+    MasterBlockElement *startBlock = nullptr;
     PortPosition startPort = PortPosition::None;
-    RectangleElement *endRect = nullptr;
+    MasterBlockElement *endBlock = nullptr;
     PortPosition endPort = PortPosition::None;
     bool isOrthogonal = true;
     LineMarkerType beginMarker = LineMarkerType::None;
-    LineMarkerType endMarker = LineMarkerType::Arrow;
+    LineMarkerType endMarker = LineMarkerType::None;
     QColor borderColor;
-    qreal borderWidth = 2.0;
+    qreal borderWidth = 1.5;
     Qt::PenStyle borderStyle = Qt::SolidLine;
     qreal zValue = 0.0;
   };
 
   struct SceneClipboard {
-    QList<RectangleClipboardData> rects;
-    QList<LineClipboardData> lines;
+    QList<MasterBlockClipboardData> blocks;
+    QList<ConnectorClipboardData> connectors;
     int pasteCount = 0;
   };
 
@@ -154,8 +158,8 @@ private:
   QVector<QPointF> preResizePoints_;
 
   quint32 nextElementId_ = 1;
-  quint32 rectangleCount_ = 0;
-  quint32 lineCount_ = 0;
+  quint32 masterBlockCount_ = 0;
+  quint32 connectorCount_ = 0;
 };
 
 } // namespace editor

@@ -61,10 +61,10 @@ void WindowElementsFrame::refreshElementsList() {
         item->setFlags(item->flags() | Qt::ItemIsEditable);
         item->setData(0, Qt::UserRole, QVariant::fromValue(static_cast<void*>(element)));
 
-        if (element->elementType() == ElementType::Rectangle) {
-            item->setIcon(0, QIcon(QStringLiteral(":/rectangle.svg")));
-        } else if (element->elementType() == ElementType::Line) {
-            item->setIcon(0, QIcon(QStringLiteral(":/line.svg")));
+        if (element->elementType() == ElementType::MasterBlock) {
+            item->setIcon(0, QIcon(QStringLiteral(":/masterblock.svg")));
+        } else if (element->elementType() == ElementType::Connector) {
+            item->setIcon(0, QIcon(QStringLiteral(":/connector.svg")));
         }
 
         if (element->isSelected()) {

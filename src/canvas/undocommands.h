@@ -1,13 +1,14 @@
 #pragma once
 
-#include "src/elements/rectangleelement.h"
-#include "src/elements/lineelement.h"
+#include "src/elements/connectorelement.h"
+#include "src/elements/masterblockelement.h"
+#include "src/elements/portposition.h"
 
-#include <QUndoCommand>
-#include <QList>
 #include <QHash>
+#include <QList>
 #include <QPointF>
 #include <QRectF>
+#include <QUndoCommand>
 #include <QVector>
 
 namespace editor {
@@ -40,17 +41,17 @@ public:
     void redo() override;
 
 private:
-    struct LineConnInfo {
-        RectangleElement *startRect = nullptr;
+    struct ConnectorConnInfo {
+        MasterBlockElement *startBlock = nullptr;
         PortPosition startPort = PortPosition::None;
-        RectangleElement *endRect = nullptr;
+        MasterBlockElement *endBlock = nullptr;
         PortPosition endPort = PortPosition::None;
     };
 
     CanvasScene *scene_;
     QList<ShapeElement*> elements_;
-    QHash<LineElement*, LineConnInfo> lineConns_;
-    QHash<LineElement*, LineConnInfo> externalLineConns_;
+    QHash<ConnectorElement*, ConnectorConnInfo> connectorConns_;
+    QHash<ConnectorElement*, ConnectorConnInfo> externalConnectorConns_;
     bool inScene_ = true;
 };
 
@@ -71,13 +72,34 @@ private:
     QHash<ShapeElement*, QPointF> newPositions_;
 };
 
-// 4. Команда изменения размера прямоугольника
-class ResizeRectangleCommand : public QUndoCommand {
+// 4. Команда изменения размера K1804 MasterBlock
+class ResizeMasterBlockCommand : public QUndoCommand {
 public:
-    ResizeRectangleCommand(CanvasScene *scene,
-                           RectangleElement *rect,
-                           const QPointF &oldPos, const QRectF &oldRect,
-                           const QPointF &newPos, const QRectF &newRect,
+    ResizeMasterBlockCommand(CanvasScene *scene,
+                             MasterBlockElement *block,
+                             const QPointF &oldPos, const QRectF &oldRect,
+                             const QPointF &newPos, const QRectF &newRect,
+                             QUndoCommand *parent = nullptr);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    CanvasScene *scene_;
+    MasterBlockElement *blockItem_;
+    QPointF oldPos_;
+    QRectF oldRect_;
+    QPointF newPos_;
+    QRectF newRect_;
+};
+
+// 5. Команда изменения формы/концов коннектора
+class ResizeConnectorCommand : public QUndoCommand {
+public:
+    ResizeConnectorCommand(CanvasScene *scene,
+                           ConnectorElement *connector,
+                           const QPointF &oldP1, const QPointF &oldP2, const QVector<QPointF> &oldPoints,
+                           const QPointF &newP1, const QPointF &newP2, const QVector<QPointF> &newPoints,
                            QUndoCommand *parent = nullptr);
 
     void undo() override;
@@ -85,28 +107,7 @@ public:
 
 private:
     CanvasScene *scene_;
-    RectangleElement *rectItem_;
-    QPointF oldPos_;
-    QRectF oldRect_;
-    QPointF newPos_;
-    QRectF newRect_;
-};
-
-// 5. Команда изменения формы/концов линии
-class ResizeLineCommand : public QUndoCommand {
-public:
-    ResizeLineCommand(CanvasScene *scene,
-                      LineElement *line,
-                      const QPointF &oldP1, const QPointF &oldP2, const QVector<QPointF> &oldPoints,
-                      const QPointF &newP1, const QPointF &newP2, const QVector<QPointF> &newPoints,
-                      QUndoCommand *parent = nullptr);
-
-    void undo() override;
-    void redo() override;
-
-private:
-    CanvasScene *scene_;
-    LineElement *lineItem_;
+    ConnectorElement *connectorItem_;
     QPointF oldP1_;
     QPointF oldP2_;
     QVector<QPointF> oldPoints_;

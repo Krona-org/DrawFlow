@@ -33,7 +33,7 @@ ShapeCard::ShapeCard(ElementType type, const QString &title, const QString &icon
     iconLabel_->setAlignment(Qt::AlignCenter);
     iconLabel_->setStyleSheet(QStringLiteral("border: none; background: transparent;"));
     QIcon icon(iconPath);
-    iconLabel_->setPixmap(icon.pixmap(28, 28));
+    iconLabel_->setPixmap(icon.pixmap(30, 30));
 
     textLabel_ = new QLabel(title, this);
     textLabel_->setAlignment(Qt::AlignCenter);
@@ -82,22 +82,39 @@ void ShapeCard::mouseMoveEvent(QMouseEvent *event) {
     auto drag = new QDrag(this);
     auto mimeData = new QMimeData();
 
-    QString typeStr = (type_ == ElementType::Rectangle) ? QStringLiteral("rectangle") : QStringLiteral("line");
+    QString typeStr = (type_ == ElementType::MasterBlock) ? QStringLiteral("masterblock") : QStringLiteral("connector");
     mimeData->setData(QStringLiteral("application/x-drawflow-element-type"), typeStr.toUtf8());
     drag->setMimeData(mimeData);
 
-    QPixmap pixmap(56, 40);
+    QPixmap pixmap(60, 44);
     pixmap.fill(Qt::transparent);
     QPainter p(&pixmap);
     p.setRenderHint(QPainter::Antialiasing);
 
-    if (type_ == ElementType::Rectangle) {
-        p.setPen(QPen(QColor(51, 65, 85), 1.5));
-        p.setBrush(QColor(241, 245, 249, 220));
-        p.drawRoundedRect(3, 3, 50, 34, 3, 3);
+    if (type_ == ElementType::MasterBlock) {
+        // Отрисовка мини-блока с бейджами
+        p.setPen(QPen(QColor(51, 65, 85), 1.2));
+        p.setBrush(QColor(241, 245, 249, 230));
+        p.drawRect(4, 10, 52, 30);
+
+        // Верхние бейджи
+        p.drawRect(8, 6, 12, 6);
+        p.drawRect(40, 6, 12, 6);
+
+        // Порты
+        p.setPen(QPen(QColor(37, 99, 235), 1.5));
+        p.drawPoint(4, 16);
+        p.drawPoint(4, 25);
+        p.drawPoint(4, 34);
+        p.drawPoint(56, 16);
+        p.drawPoint(56, 25);
+        p.drawPoint(56, 34);
     } else {
-        p.setPen(QPen(QColor(51, 65, 85), 2.0, Qt::SolidLine, Qt::RoundCap));
-        p.drawLine(5, 35, 51, 5);
+        // Отрисовка ступени коннектора
+        p.setPen(QPen(QColor(37, 99, 235), 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        p.drawLine(6, 12, 28, 12);
+        p.drawLine(28, 12, 28, 32);
+        p.drawLine(28, 32, 54, 32);
     }
     p.end();
 
@@ -122,12 +139,12 @@ ElementsLibraryFrame::ElementsLibraryFrame(CanvasScene *scene, QWidget *parent)
 {
     ui->setupUi(this);
 
-    rectCard_ = new ShapeCard(ElementType::Rectangle, QStringLiteral("Прямоугольник"), QStringLiteral(":/rectangle.svg"), this);
-    lineCard_ = new ShapeCard(ElementType::Line, QStringLiteral("Линия"), QStringLiteral(":/line.svg"), this);
+    masterBlockCard_ = new ShapeCard(ElementType::MasterBlock, QStringLiteral("K1804 MasterBlock"), QStringLiteral(":/masterblock.svg"), this);
+    connectorCard_ = new ShapeCard(ElementType::Connector, QStringLiteral("Connector"), QStringLiteral(":/connector.svg"), this);
 
     // Вставляем карточки перед пружиной (verticalSpacer)
-    ui->mainLayout->insertWidget(0, rectCard_);
-    ui->mainLayout->insertWidget(1, lineCard_);
+    ui->mainLayout->insertWidget(0, masterBlockCard_);
+    ui->mainLayout->insertWidget(1, connectorCard_);
 
     auto handleCardClick = [this](ElementType t) {
         if (scene_->activeTool() == t) {
@@ -137,8 +154,8 @@ ElementsLibraryFrame::ElementsLibraryFrame(CanvasScene *scene, QWidget *parent)
         }
     };
 
-    connect(rectCard_, &ShapeCard::clicked, this, handleCardClick);
-    connect(lineCard_, &ShapeCard::clicked, this, handleCardClick);
+    connect(masterBlockCard_, &ShapeCard::clicked, this, handleCardClick);
+    connect(connectorCard_, &ShapeCard::clicked, this, handleCardClick);
 
     connect(scene_, &CanvasScene::activeToolChanged, this, &ElementsLibraryFrame::onToolChanged);
 }
@@ -161,8 +178,8 @@ void ElementsLibraryFrame::setScene(CanvasScene *scene) {
 }
 
 void ElementsLibraryFrame::onToolChanged(ElementType tool) {
-    if (rectCard_) rectCard_->setActive(tool == ElementType::Rectangle);
-    if (lineCard_) lineCard_->setActive(tool == ElementType::Line);
+    if (masterBlockCard_) masterBlockCard_->setActive(tool == ElementType::MasterBlock);
+    if (connectorCard_) connectorCard_->setActive(tool == ElementType::Connector);
 }
 
 } // namespace editor

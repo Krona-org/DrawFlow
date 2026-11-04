@@ -56,8 +56,8 @@ public slots:
 private:
     Ui::ElementsLibraryFrame *ui = nullptr;
     CanvasScene *scene_ = nullptr;
-    ShapeCard *rectCard_ = nullptr;
-    ShapeCard *lineCard_ = nullptr;
+    ShapeCard *masterBlockCard_ = nullptr;
+    ShapeCard *connectorCard_ = nullptr;
 };
 
 } // namespace editor

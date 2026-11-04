@@ -1,6 +1,7 @@
 #pragma once
 
-#include "rectangleelement.h"
+#include "masterblockelement.h"
+#include "portposition.h"
 #include "shapeelement.h"
 
 #include <QVector>
@@ -12,14 +13,14 @@ enum class LineMarkerType {
     Arrow
 };
 
-class LineElement : public ShapeElement {
+class ConnectorElement : public ShapeElement {
     Q_OBJECT
 
 public:
-    explicit LineElement(quint32 id, const QString &name, const QUuid &uid, QGraphicsItem *parent = nullptr);
-    ~LineElement() override = default;
+    explicit ConnectorElement(quint32 id, const QString &name, const QUuid &uid, QGraphicsItem *parent = nullptr);
+    ~ConnectorElement() override = default;
 
-    ElementType elementType() const override { return ElementType::Line; }
+    ElementType elementType() const override { return ElementType::Connector; }
 
     QPointF p1() const { return p1_; }
     void setP1(const QPointF &p);
@@ -31,13 +32,13 @@ public:
     QVector<QPointF> points() const { return points_; }
     void setPoints(const QVector<QPointF> &pts);
 
-    // Привязки к портам прямоугольников
-    void setStartConnection(RectangleElement *rect, PortPosition port);
-    RectangleElement* startRect() const { return startRect_; }
+    // Привязки к портам блоков K1804 MasterBlock
+    void setStartConnection(MasterBlockElement *block, PortPosition port);
+    MasterBlockElement* startBlock() const { return startBlock_; }
     PortPosition startPort() const { return startPort_; }
 
-    void setEndConnection(RectangleElement *rect, PortPosition port);
-    RectangleElement* endRect() const { return endRect_; }
+    void setEndConnection(MasterBlockElement *block, PortPosition port);
+    MasterBlockElement* endBlock() const { return endBlock_; }
     PortPosition endPort() const { return endPort_; }
 
     bool isOrthogonal() const { return isOrthogonal_; }
@@ -62,25 +63,26 @@ protected:
     QRectF handleRect(ResizeHandle handle) const override;
 
 private:
-    void updateBounds();
+    void updatePath();
+    void drawArrow(QPainter *painter, const QPointF &tip, const QPointF &from);
 
     QPointF p1_{0, 0};
-    QPointF p2_{120, 60};
+    QPointF p2_{100, 0};
     QVector<QPointF> points_;
 
-    RectangleElement *startRect_ = nullptr;
+    MasterBlockElement *startBlock_ = nullptr;
     PortPosition startPort_ = PortPosition::None;
 
-    RectangleElement *endRect_ = nullptr;
+    MasterBlockElement *endBlock_ = nullptr;
     PortPosition endPort_ = PortPosition::None;
 
     bool isOrthogonal_ = true;
-
-    LineMarkerType beginMarker_ = LineMarkerType::None;
-    LineMarkerType endMarker_ = LineMarkerType::Arrow;
-
+    QPointF dragStartScenePos_;
     QPointF initialP1_;
     QPointF initialP2_;
+    LineMarkerType beginMarker_ = LineMarkerType::None;
+    LineMarkerType endMarker_ = LineMarkerType::None;
 };
 
 } // namespace editor
+
