@@ -331,6 +331,26 @@ QGroupBox {
   color: #2E3440;
 }
 
+QGroupBox#sectionGroupBox {
+  background-color: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 6px;
+  margin-top: 10px;
+  padding-top: 14px;
+  font-weight: 700;
+  font-size: 11px;
+  color: #1E40AF;
+}
+
+QGroupBox#sectionGroupBox::title {
+  subcontrol-origin: margin;
+  subcontrol-position: top left;
+  left: 10px;
+  padding: 0 6px;
+  background-color: #FFFFFF;
+  color: #1E3A8A;
+}
+
 QGroupBox::title {
   subcontrol-origin: margin;
   left: 8px;
@@ -618,4 +638,172 @@ QToolButton#bitBtn:checked {
   background-color: #2563EB;
   color: #FFFFFF;
   border-color: #1D4ED8;
+}
+
+/* ==================== 14. Help Dialog & Tabs ==================== */
+QDialog#helpDialog {
+  background-color: #F1F5F9;
+  color: #1E293B;
+}
+
+QFrame#helpBannerCard {
+  background-color: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 8px;
+}
+
+QLabel#helpBannerTitle {
+  color: #0F172A;
+  font-size: 16px;
+  font-weight: 700;
+  background: transparent;
+  border: none;
+}
+
+QLabel#helpBannerSubtitle {
+  color: #475569;
+  font-size: 12px;
+  background: transparent;
+  border: none;
+}
+
+QTabWidget#helpTabs::pane {
+  border: 1px solid #CBD5E1;
+  border-radius: 6px;
+  background-color: #E2E8F0;
+  top: -1px;
+}
+
+QTabWidget#helpTabs QTabBar::tab {
+  background-color: #E2E8F0;
+  color: #475569;
+  border: 1px solid #CBD5E1;
+  border-bottom: none;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  padding: 7px 14px;
+  margin-right: 3px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+QTabWidget#helpTabs QTabBar::tab:hover {
+  background-color: #F1F5F9;
+  color: #0F172A;
+}
+
+QTabWidget#helpTabs QTabBar::tab:selected {
+  background-color: #FFFFFF;
+  color: #1D4ED8;
+  border-color: #CBD5E1;
+  border-top: 2px solid #2563EB;
+  font-weight: 700;
+}
+
+QWidget#helpPageContainer {
+  background-color: #F1F5F9;
+}
+
+QFrame#helpCard {
+  background-color: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 8px;
+}
+
+QFrame#helpInnerTable {
+  background-color: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+}
+
+QFrame#helpRowSeparator {
+  background-color: #E2E8F0;
+  max-height: 1px;
+  min-height: 1px;
+  border: none;
+}
+
+QLabel#helpCardTitle {
+  color: #0F172A;
+  font-size: 14px;
+  font-weight: 700;
+  background: transparent;
+  border: none;
+}
+
+QLabel#helpSectionHeading {
+  color: #1E3A8A;
+  font-size: 13px;
+  font-weight: 700;
+  background: transparent;
+  border: none;
+}
+
+QLabel#helpBodyText {
+  color: #334155;
+  font-size: 12px;
+  background: transparent;
+  border: none;
+}
+
+QLabel#helpMutedText {
+  color: #64748B;
+  font-size: 11px;
+  background: transparent;
+  border: none;
+}
+
+QLabel#helpCodeChip {
+  background-color: #F1F5F9;
+  color: #0F172A;
+  border: 1px solid #CBD5E1;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: "Consolas", monospace;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+QLabel#helpBadgeBlue {
+  background-color: #DBEAFE;
+  color: #1D4ED8;
+  border: 1px solid #93C5FD;
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-family: "Consolas", monospace;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+QLabel#helpBadgeGreen {
+  background-color: #DCFCE7;
+  color: #15803D;
+  border: 1px solid #86EFAC;
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-family: "Consolas", monospace;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+QLabel#helpBadgePurple {
+  background-color: #F3E8FF;
+  color: #7E22CE;
+  border: 1px solid #D8B4FE;
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-family: "Consolas", monospace;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+QLabel#helpBadgeAmber {
+  background-color: #FEF3C7;
+  color: #B45309;
+  border: 1px solid #FCD34D;
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-family: "Consolas", monospace;
+  font-size: 12px;
+  font-weight: 700;
 }

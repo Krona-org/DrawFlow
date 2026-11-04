@@ -3,6 +3,7 @@
 #include "src/canvas/canvasview.h"
 #include "src/elements/connectorElement/connectorelement.h"
 #include "src/elements/masterBlockElement/masterblockelement.h"
+#include "src/frames/bParamsDialog/data/helpdialog.h"
 #include "src/themes/thememanager.h"
 #include "ui_mainwindow.h"
 
@@ -358,6 +359,12 @@ void MainWindow::setupUiConnections() {
   });
 
   // Диалоги
+  auto *actionHelp = new QAction(QStringLiteral("Справочник микрокоманд К1804..."), this);
+  actionHelp->setShortcut(QKeySequence(QStringLiteral("F1")));
+  ui->menuHelp->insertAction(ui->actionAbout, actionHelp);
+  ui->menuHelp->insertSeparator(ui->actionAbout);
+  connect(actionHelp, &QAction::triggered, this, &MainWindow::onHelpContents);
+
   connect(ui->actionAbout, &QAction::triggered, this, &MainWindow::onAbout);
 }
 
@@ -556,6 +563,11 @@ void MainWindow::onGridSettings() {
   if (ok) {
     scene_->setGridSize(newStep);
   }
+}
+
+void MainWindow::onHelpContents() {
+  HelpDialog dlg(this);
+  dlg.exec();
 }
 
 void MainWindow::onAbout() {

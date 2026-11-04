@@ -31,6 +31,7 @@ private slots:
     void onSaveProjectAs();
     void onExportBinary();
     void onGridSettings();
+    void onHelpContents();
     void onAbout();
     void onToolChanged(ElementType tool);
 

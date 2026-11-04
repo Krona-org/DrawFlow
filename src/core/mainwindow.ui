@@ -31,7 +31,18 @@
      <number>0</number>
     </property>
    </layout>
-  </widget>
+   <action name="actionHelpContents">
+   <property name="text">
+    <string>Справочник микрокоманд К1804...</string>
+   </property>
+   <property name="toolTip">
+    <string>Подробное описание микрокоманд и архитектуры К1804 (F1)</string>
+   </property>
+   <property name="shortcut">
+    <string>F1</string>
+   </property>
+  </action>
+ </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
@@ -52,7 +63,18 @@
     <addaction name="actionSaveAs"/>
     <addaction name="separator"/>
     <addaction name="actionExit"/>
-   </widget>
+    <action name="actionHelpContents">
+   <property name="text">
+    <string>Справочник микрокоманд К1804...</string>
+   </property>
+   <property name="toolTip">
+    <string>Подробное описание микрокоманд и архитектуры К1804 (F1)</string>
+   </property>
+   <property name="shortcut">
+    <string>F1</string>
+   </property>
+  </action>
+ </widget>
    <widget class="QMenu" name="menuEdit">
     <property name="title">
      <string>Правка</string>
@@ -67,7 +89,18 @@
     <addaction name="actionDelete"/>
     <addaction name="separator"/>
     <addaction name="actionSelectAll"/>
-   </widget>
+    <action name="actionHelpContents">
+   <property name="text">
+    <string>Справочник микрокоманд К1804...</string>
+   </property>
+   <property name="toolTip">
+    <string>Подробное описание микрокоманд и архитектуры К1804 (F1)</string>
+   </property>
+   <property name="shortcut">
+    <string>F1</string>
+   </property>
+  </action>
+ </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
      <string>Вид</string>
@@ -87,33 +120,88 @@
     <addaction name="actionZoomIn"/>
     <addaction name="actionZoomOut"/>
     <addaction name="actionZoomReset"/>
-   </widget>
+    <action name="actionHelpContents">
+   <property name="text">
+    <string>Справочник микрокоманд К1804...</string>
+   </property>
+   <property name="toolTip">
+    <string>Подробное описание микрокоманд и архитектуры К1804 (F1)</string>
+   </property>
+   <property name="shortcut">
+    <string>F1</string>
+   </property>
+  </action>
+ </widget>
    <widget class="QMenu" name="menuArrange">
     <property name="title">
      <string>Упорядочить</string>
     </property>
     <addaction name="actionBringToFront"/>
     <addaction name="actionSendToBack"/>
-   </widget>
+    <action name="actionHelpContents">
+   <property name="text">
+    <string>Справочник микрокоманд К1804...</string>
+   </property>
+   <property name="toolTip">
+    <string>Подробное описание микрокоманд и архитектуры К1804 (F1)</string>
+   </property>
+   <property name="shortcut">
+    <string>F1</string>
+   </property>
+  </action>
+ </widget>
    <widget class="QMenu" name="menuExtra">
     <property name="title">
      <string>Дополнительно</string>
     </property>
     <addaction name="actionGridSettings"/>
-   </widget>
+    <action name="actionHelpContents">
+   <property name="text">
+    <string>Справочник микрокоманд К1804...</string>
+   </property>
+   <property name="toolTip">
+    <string>Подробное описание микрокоманд и архитектуры К1804 (F1)</string>
+   </property>
+   <property name="shortcut">
+    <string>F1</string>
+   </property>
+  </action>
+ </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
      <string>Помощь</string>
     </property>
     <addaction name="actionAbout"/>
-   </widget>
+    <action name="actionHelpContents">
+   <property name="text">
+    <string>Справочник микрокоманд К1804...</string>
+   </property>
+   <property name="toolTip">
+    <string>Подробное описание микрокоманд и архитектуры К1804 (F1)</string>
+   </property>
+   <property name="shortcut">
+    <string>F1</string>
+   </property>
+  </action>
+ </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
    <addaction name="menuView"/>
    <addaction name="menuArrange"/>
    <addaction name="menuExtra"/>
    <addaction name="menuHelp"/>
-  </widget>
+   <action name="actionHelpContents">
+   <property name="text">
+    <string>Справочник микрокоманд К1804...</string>
+   </property>
+   <property name="toolTip">
+    <string>Подробное описание микрокоманд и архитектуры К1804 (F1)</string>
+   </property>
+   <property name="shortcut">
+    <string>F1</string>
+   </property>
+  </action>
+ </widget>
   <widget class="QToolBar" name="mainToolBar">
    <property name="windowTitle">
     <string>Панель инструментов</string>
@@ -142,7 +230,18 @@
    <addaction name="actionSnap"/>
    <addaction name="separator"/>
    <addaction name="actionZoom100"/>
-  </widget>
+   <action name="actionHelpContents">
+   <property name="text">
+    <string>Справочник микрокоманд К1804...</string>
+   </property>
+   <property name="toolTip">
+    <string>Подробное описание микрокоманд и архитектуры К1804 (F1)</string>
+   </property>
+   <property name="shortcut">
+    <string>F1</string>
+   </property>
+  </action>
+ </widget>
   <action name="actionNew">
    <property name="icon">
     <iconset resource="../../resources/resources.qrc">
@@ -458,6 +557,17 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+A</string>
+   </property>
+  </action>
+  <action name="actionHelpContents">
+   <property name="text">
+    <string>Справочник микрокоманд К1804...</string>
+   </property>
+   <property name="toolTip">
+    <string>Подробное описание микрокоманд и архитектуры К1804 (F1)</string>
+   </property>
+   <property name="shortcut">
+    <string>F1</string>
    </property>
   </action>
  </widget>

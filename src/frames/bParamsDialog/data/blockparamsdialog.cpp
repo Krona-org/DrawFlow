@@ -1,4 +1,5 @@
 #include "blockparamsdialog.h"
+#include "helpdialog.h"
 #include "src/themes/thememanager.h"
 #include "src/widgets/smoothcombobox.h"
 #include "src/widgets/smoothscrollarea.h"
@@ -8,6 +9,7 @@
 
 #include <QFrame>
 #include <QGridLayout>
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -102,343 +104,357 @@ void BlockParamsDialog::setupUi() {
   mainLayout->addWidget(headerCard);
 
   // =========================================================================
-  // 2. СПИСОК ПОЛЕЙ M1 .. M15 В СТРОГОМ ПОРЯДКЕ (С ПЛАВНОЙ ПРОКРУТКОЙ)
+  // 2. СПИСОК ПОЛЕЙ ПО ЛОГИЧЕСКИМ ГРУППАМ АРХИТЕКТУРЫ К1804 (С ПЛАВНОЙ ПРОКРУТКОЙ)
   // =========================================================================
   auto *scrollArea = new SmoothScrollArea(this);
   scrollArea->setWidgetResizable(true);
   scrollArea->setFrameShape(QFrame::NoFrame);
   scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-  auto *fieldsCard = new QFrame(scrollArea);
-  fieldsCard->setObjectName(QStringLiteral("cardFrame"));
-  auto *grid = new QGridLayout(fieldsCard);
-  grid->setContentsMargins(10, 10, 10, 10);
-  grid->setHorizontalSpacing(8);
-  grid->setVerticalSpacing(6);
-  grid->setColumnStretch(2, 1);
+  auto *scrollContainer = new QWidget(scrollArea);
+  scrollContainer->setObjectName(QStringLiteral("dialogScrollContainer"));
+  auto *contentLayout = new QVBoxLayout(scrollContainer);
+  contentLayout->setContentsMargins(0, 0, 0, 0);
+  contentLayout->setSpacing(10);
 
-  int row = 0;
+  auto createSectionBox = [this, contentLayout](const QString &title) -> QGridLayout* {
+    auto *box = new QGroupBox(title, this);
+    box->setObjectName(QStringLiteral("sectionGroupBox"));
+    auto *gl = new QGridLayout(box);
+    gl->setContentsMargins(10, 12, 10, 10);
+    gl->setHorizontalSpacing(8);
+    gl->setVerticalSpacing(6);
+    gl->setColumnStretch(2, 1);
+    contentLayout->addWidget(box);
+    return gl;
+  };
 
-  // --- M1: Константа / Адрес перехода (16 бит, oct) ---
+  // -------------------------------------------------------------------------
+  // Группа 1: Управление переходами и адресацией (К1804ВУ1)
+  // -------------------------------------------------------------------------
   {
-    auto *w = new QWidget(fieldsCard);
-    auto *hl = new QHBoxLayout(w);
-    hl->setContentsMargins(0, 0, 0, 0);
-    hl->setSpacing(6);
-    editM1Oct_ = new QLineEdit(w);
-    editM1Oct_->setValidator(octValidator16);
-    editM1Oct_->setFixedWidth(90);
-    lblM1Dec_ = new QLabel(QStringLiteral("(= 0 dec, 0..177777 oct)"), w);
-    lblM1Dec_->setObjectName(QStringLiteral("octDecHintLabel"));
-    hl->addWidget(editM1Oct_);
-    hl->addWidget(lblM1Dec_);
-    hl->addStretch(1);
+    auto *grid = createSectionBox(QStringLiteral("1. Управление переходами и адресацией (К1804ВУ1)"));
+    int row = 0;
 
-    grid->addWidget(createMBadge(QStringLiteral("M1"), fieldsCard), row, 0);
-    grid->addWidget(
-        createFieldTitle(QStringLiteral("Константа / Адрес (oct):"), fieldsCard),
-        row, 1);
-    grid->addWidget(w, row, 2);
-    row++;
-  }
+    // --- M1: Константа / Адрес перехода ---
+    {
+      auto *w = new QWidget();
+      auto *hl = new QHBoxLayout(w);
+      hl->setContentsMargins(0, 0, 0, 0);
+      hl->setSpacing(6);
+      editM1Oct_ = new QLineEdit(w);
+      editM1Oct_->setValidator(octValidator16);
+      editM1Oct_->setFixedWidth(90);
+      lblM1Dec_ = new QLabel(QStringLiteral("(= 0 dec, 0..177777 oct)"), w);
+      lblM1Dec_->setObjectName(QStringLiteral("octDecHintLabel"));
+      hl->addWidget(editM1Oct_);
+      hl->addWidget(lblM1Dec_);
+      hl->addStretch(1);
 
-  // --- M2: Модификация условия ---
-  {
-    comboM2_ = new SmoothComboBox(fieldsCard);
-    for (const auto &opt : K1804Microcode::m2Options()) {
-      comboM2_->addItem(
-          QStringLiteral("[%1] %2").arg(opt.octalCode, opt.description),
-          opt.code);
-    }
-    grid->addWidget(createMBadge(QStringLiteral("M2"), fieldsCard), row, 0);
-    grid->addWidget(
-        createFieldTitle(QStringLiteral("Модификация условия:"), fieldsCard),
-        row, 1);
-    grid->addWidget(comboM2_, row, 2);
-    row++;
-  }
-
-  // --- M3: Проверяемое условие TST ---
-  {
-    comboM3_ = new SmoothComboBox(fieldsCard);
-    populateM3Combo(false, 0);
-    grid->addWidget(createMBadge(QStringLiteral("M3"), fieldsCard), row, 0);
-    grid->addWidget(createFieldTitle(
-                        QStringLiteral("Проверяемое условие TST:"), fieldsCard),
-                    row, 1);
-    grid->addWidget(comboM3_, row, 2);
-    row++;
-  }
-
-  // --- M4: Команда перехода БМУ ---
-  {
-    comboM4_ = new SmoothComboBox(fieldsCard);
-    for (const auto &opt : K1804Microcode::m4Options()) {
-      comboM4_->addItem(
-          QStringLiteral("[%1] %2 — %3")
-              .arg(opt.octalCode, opt.shortText, opt.description),
-          opt.code);
-    }
-    grid->addWidget(createMBadge(QStringLiteral("M4"), fieldsCard), row, 0);
-    grid->addWidget(
-        createFieldTitle(QStringLiteral("Команда перехода БМУ:"), fieldsCard),
-        row, 1);
-    grid->addWidget(comboM4_, row, 2);
-    row++;
-  }
-
-  // --- M5: Адрес порта A (АЛУ) ---
-  {
-    auto *w = new QWidget(fieldsCard);
-    auto *hl = new QHBoxLayout(w);
-    hl->setContentsMargins(0, 0, 0, 0);
-    hl->setSpacing(4);
-
-    comboM5Mode_ = new SmoothComboBox(w);
-    comboM5Mode_->addItem(QStringLiteral("РОН R0..R15"), 0);
-    comboM5Mode_->addItem(QStringLiteral("RK[2/0]"), 1);
-    comboM5Mode_->addItem(QStringLiteral("RK[8/6]"), 2);
-    comboM5Mode_->setFixedWidth(105);
-
-    comboM5Reg_ = new SmoothComboBox(w);
-    for (int r = 0; r < 16; ++r) {
-      comboM5Reg_->addItem(
-          QStringLiteral("R%1 (%2)").arg(r).arg(K1804Microcode::toOctal(r, 2)),
-          r);
-    }
-    comboM5Reg_->setFixedWidth(84);
-
-    hl->addWidget(comboM5Mode_);
-    hl->addWidget(comboM5Reg_);
-    hl->addSpacing(4);
-
-    for (int b = 0; b < 5; ++b) {
-      auto *btn = new QToolButton(w);
-      btn->setObjectName(QStringLiteral("bitBtn"));
-      btn->setFixedSize(24, 24);
-      btn->setCheckable(true);
-      btn->setText(QStringLiteral("0"));
-      btn->setToolTip(QStringLiteral("Разряд 2^%1 поля M5").arg(4 - b));
-      btnM5Bits_[b] = btn;
-      hl->addWidget(btn);
-      connect(btn, &QToolButton::clicked, this,
-              &BlockParamsDialog::onM5BitToggled);
+      grid->addWidget(createMBadge(QStringLiteral("M1"), w), row, 0);
+      grid->addWidget(createFieldTitle(QStringLiteral("Константа / Адрес (oct):"), w), row, 1);
+      grid->addWidget(w, row, 2);
+      row++;
     }
 
-    lblM5Oct_ = new QLabel(QStringLiteral("00 oct"), w);
-    lblM5Oct_->setObjectName(QStringLiteral("octValueLabel"));
-    hl->addSpacing(4);
-    hl->addWidget(lblM5Oct_);
-    hl->addStretch(1);
-
-    grid->addWidget(createMBadge(QStringLiteral("M5"), fieldsCard), row, 0);
-    grid->addWidget(
-        createFieldTitle(QStringLiteral("Адрес порта A (АЛУ):"), fieldsCard),
-        row, 1);
-    grid->addWidget(w, row, 2);
-    row++;
-  }
-
-  // --- M6: Адрес порта B (АЛУ) ---
-  {
-    auto *w = new QWidget(fieldsCard);
-    auto *hl = new QHBoxLayout(w);
-    hl->setContentsMargins(0, 0, 0, 0);
-    hl->setSpacing(4);
-
-    comboM6Mode_ = new SmoothComboBox(w);
-    comboM6Mode_->addItem(QStringLiteral("РОН R0..R15"), 0);
-    comboM6Mode_->addItem(QStringLiteral("RK[2/0]"), 1);
-    comboM6Mode_->addItem(QStringLiteral("RK[8/6]"), 2);
-    comboM6Mode_->setFixedWidth(105);
-
-    comboM6Reg_ = new SmoothComboBox(w);
-    for (int r = 0; r < 16; ++r) {
-      comboM6Reg_->addItem(
-          QStringLiteral("R%1 (%2)").arg(r).arg(K1804Microcode::toOctal(r, 2)),
-          r);
-    }
-    comboM6Reg_->setFixedWidth(84);
-
-    hl->addWidget(comboM6Mode_);
-    hl->addWidget(comboM6Reg_);
-    hl->addSpacing(4);
-
-    for (int b = 0; b < 5; ++b) {
-      auto *btn = new QToolButton(w);
-      btn->setObjectName(QStringLiteral("bitBtn"));
-      btn->setFixedSize(24, 24);
-      btn->setCheckable(true);
-      btn->setText(QStringLiteral("0"));
-      btn->setToolTip(QStringLiteral("Разряд 2^%1 поля M6").arg(4 - b));
-      btnM6Bits_[b] = btn;
-      hl->addWidget(btn);
-      connect(btn, &QToolButton::clicked, this,
-              &BlockParamsDialog::onM6BitToggled);
+    // --- M4: Команда перехода БМУ ---
+    {
+      comboM4_ = new SmoothComboBox();
+      for (const auto &opt : K1804Microcode::m4Options()) {
+        comboM4_->addItem(
+            QStringLiteral("[%1] %2 — %3")
+                .arg(opt.octalCode, opt.shortText, opt.description),
+            opt.code);
+      }
+      grid->addWidget(createMBadge(QStringLiteral("M4"), comboM4_), row, 0);
+      grid->addWidget(createFieldTitle(QStringLiteral("Команда перехода БМУ:"), comboM4_), row, 1);
+      grid->addWidget(comboM4_, row, 2);
+      row++;
     }
 
-    lblM6Oct_ = new QLabel(QStringLiteral("00 oct"), w);
-    lblM6Oct_->setObjectName(QStringLiteral("octValueLabel"));
-    hl->addSpacing(4);
-    hl->addWidget(lblM6Oct_);
-    hl->addStretch(1);
-
-    grid->addWidget(createMBadge(QStringLiteral("M6"), fieldsCard), row, 0);
-    grid->addWidget(
-        createFieldTitle(QStringLiteral("Адрес порта B (АЛУ):"), fieldsCard),
-        row, 1);
-    grid->addWidget(w, row, 2);
-    row++;
-  }
-
-  // --- M7: Цепь сдвига регистров ---
-  {
-    comboM7_ = new SmoothComboBox(fieldsCard);
-    populateM7Combo(false, 0);
-    grid->addWidget(createMBadge(QStringLiteral("M7"), fieldsCard), row, 0);
-    grid->addWidget(
-        createFieldTitle(QStringLiteral("Цепь сдвига регистров:"), fieldsCard),
-        row, 1);
-    grid->addWidget(comboM7_, row, 2);
-    row++;
-  }
-
-  // --- M8: Входной перенос C0 ---
-  {
-    comboM8_ = new SmoothComboBox(fieldsCard);
-    for (const auto &opt : K1804Microcode::m8Options()) {
-      comboM8_->addItem(
-          QStringLiteral("[%1] C0 = %2").arg(opt.octalCode, opt.shortText),
-          opt.code);
+    // --- M3: Проверяемое условие TST ---
+    {
+      comboM3_ = new SmoothComboBox();
+      populateM3Combo(false, 0);
+      grid->addWidget(createMBadge(QStringLiteral("M3"), comboM3_), row, 0);
+      grid->addWidget(createFieldTitle(QStringLiteral("Проверяемое условие TST:"), comboM3_), row, 1);
+      grid->addWidget(comboM3_, row, 2);
+      row++;
     }
-    grid->addWidget(createMBadge(QStringLiteral("M8"), fieldsCard), row, 0);
-    grid->addWidget(
-        createFieldTitle(QStringLiteral("Входной перенос C0:"), fieldsCard),
-        row, 1);
-    grid->addWidget(comboM8_, row, 2);
-    row++;
-  }
 
-  // --- M9: Источники операндов R и S ---
-  {
-    comboM9_ = new SmoothComboBox(fieldsCard);
-    for (const auto &opt : K1804Microcode::m9Options()) {
-      comboM9_->addItem(
-          QStringLiteral("[%1] R :: S = %2").arg(opt.octalCode, opt.shortText),
-          opt.code);
+    // --- M2: Модификация условия ---
+    {
+      comboM2_ = new SmoothComboBox();
+      for (const auto &opt : K1804Microcode::m2Options()) {
+        comboM2_->addItem(
+            QStringLiteral("[%1] %2").arg(opt.octalCode, opt.description),
+            opt.code);
+      }
+      grid->addWidget(createMBadge(QStringLiteral("M2"), comboM2_), row, 0);
+      grid->addWidget(createFieldTitle(QStringLiteral("Модификация условия:"), comboM2_), row, 1);
+      grid->addWidget(comboM2_, row, 2);
+      row++;
     }
-    grid->addWidget(createMBadge(QStringLiteral("M9"), fieldsCard), row, 0);
-    grid->addWidget(createFieldTitle(
-                        QStringLiteral("Источники операндов R, S:"), fieldsCard),
-                    row, 1);
-    grid->addWidget(comboM9_, row, 2);
-    row++;
   }
 
-  // --- M10: Операция АЛУ ---
+  // -------------------------------------------------------------------------
+  // Группа 2: Арифметико-логическое устройство (К1804ВС1)
+  // -------------------------------------------------------------------------
   {
-    comboM10_ = new SmoothComboBox(fieldsCard);
-    for (const auto &opt : K1804Microcode::m10Options()) {
-      comboM10_->addItem(
-          QStringLiteral("[%1] F = %2").arg(opt.octalCode, opt.shortText),
-          opt.code);
+    auto *grid = createSectionBox(QStringLiteral("2. Арифметико-логическое устройство (К1804ВС1)"));
+    int row = 0;
+
+    // --- M5: Адрес порта A ---
+    {
+      auto *w = new QWidget();
+      auto *hl = new QHBoxLayout(w);
+      hl->setContentsMargins(0, 0, 0, 0);
+      hl->setSpacing(4);
+
+      comboM5Mode_ = new SmoothComboBox(w);
+      comboM5Mode_->addItem(QStringLiteral("РОН R0..R15"), 0);
+      comboM5Mode_->addItem(QStringLiteral("RK[2/0]"), 1);
+      comboM5Mode_->addItem(QStringLiteral("RK[8/6]"), 2);
+      comboM5Mode_->setFixedWidth(105);
+
+      comboM5Reg_ = new SmoothComboBox(w);
+      for (int r = 0; r < 16; ++r) {
+        comboM5Reg_->addItem(
+            QStringLiteral("R%1 (%2)").arg(r).arg(K1804Microcode::toOctal(r, 2)),
+            r);
+      }
+      comboM5Reg_->setFixedWidth(84);
+
+      hl->addWidget(comboM5Mode_);
+      hl->addWidget(comboM5Reg_);
+      hl->addSpacing(4);
+
+      for (int b = 0; b < 5; ++b) {
+        auto *btn = new QToolButton(w);
+        btn->setObjectName(QStringLiteral("bitBtn"));
+        btn->setFixedSize(24, 24);
+        btn->setCheckable(true);
+        btn->setText(QStringLiteral("0"));
+        btn->setToolTip(QStringLiteral("Разряд 2^%1 поля M5").arg(4 - b));
+        btnM5Bits_[b] = btn;
+        hl->addWidget(btn);
+        connect(btn, &QToolButton::clicked, this,
+                &BlockParamsDialog::onM5BitToggled);
+      }
+
+      lblM5Oct_ = new QLabel(QStringLiteral("00 oct"), w);
+      lblM5Oct_->setObjectName(QStringLiteral("octValueLabel"));
+      hl->addSpacing(4);
+      hl->addWidget(lblM5Oct_);
+      hl->addStretch(1);
+
+      grid->addWidget(createMBadge(QStringLiteral("M5"), w), row, 0);
+      grid->addWidget(createFieldTitle(QStringLiteral("Адрес порта A (АЛУ):"), w), row, 1);
+      grid->addWidget(w, row, 2);
+      row++;
     }
-    grid->addWidget(createMBadge(QStringLiteral("M10"), fieldsCard), row, 0);
-    grid->addWidget(
-        createFieldTitle(QStringLiteral("Операция АЛУ:"), fieldsCard), row, 1);
-    grid->addWidget(comboM10_, row, 2);
-    row++;
-  }
 
-  // --- M11: Приёмник результата АЛУ ---
-  {
-    comboM11_ = new SmoothComboBox(fieldsCard);
-    for (const auto &opt : K1804Microcode::m11Options()) {
-      comboM11_->addItem(
-          QStringLiteral("[%1] РОН: %2 (%3) | RQ: %4 (%5) | Вых Y: %6")
-              .arg(opt.octalCode, opt.writeRon, opt.shiftRon, opt.writeRq,
-                   opt.shiftRq, opt.outputY),
-          opt.code);
+    // --- M6: Адрес порта B ---
+    {
+      auto *w = new QWidget();
+      auto *hl = new QHBoxLayout(w);
+      hl->setContentsMargins(0, 0, 0, 0);
+      hl->setSpacing(4);
+
+      comboM6Mode_ = new SmoothComboBox(w);
+      comboM6Mode_->addItem(QStringLiteral("РОН R0..R15"), 0);
+      comboM6Mode_->addItem(QStringLiteral("RK[2/0]"), 1);
+      comboM6Mode_->addItem(QStringLiteral("RK[8/6]"), 2);
+      comboM6Mode_->setFixedWidth(105);
+
+      comboM6Reg_ = new SmoothComboBox(w);
+      for (int r = 0; r < 16; ++r) {
+        comboM6Reg_->addItem(
+            QStringLiteral("R%1 (%2)").arg(r).arg(K1804Microcode::toOctal(r, 2)),
+            r);
+      }
+      comboM6Reg_->setFixedWidth(84);
+
+      hl->addWidget(comboM6Mode_);
+      hl->addWidget(comboM6Reg_);
+      hl->addSpacing(4);
+
+      for (int b = 0; b < 5; ++b) {
+        auto *btn = new QToolButton(w);
+        btn->setObjectName(QStringLiteral("bitBtn"));
+        btn->setFixedSize(24, 24);
+        btn->setCheckable(true);
+        btn->setText(QStringLiteral("0"));
+        btn->setToolTip(QStringLiteral("Разряд 2^%1 поля M6").arg(4 - b));
+        btnM6Bits_[b] = btn;
+        hl->addWidget(btn);
+        connect(btn, &QToolButton::clicked, this,
+                &BlockParamsDialog::onM6BitToggled);
+      }
+
+      lblM6Oct_ = new QLabel(QStringLiteral("00 oct"), w);
+      lblM6Oct_->setObjectName(QStringLiteral("octValueLabel"));
+      hl->addSpacing(4);
+      hl->addWidget(lblM6Oct_);
+      hl->addStretch(1);
+
+      grid->addWidget(createMBadge(QStringLiteral("M6"), w), row, 0);
+      grid->addWidget(createFieldTitle(QStringLiteral("Адрес порта B (АЛУ):"), w), row, 1);
+      grid->addWidget(w, row, 2);
+      row++;
     }
-    grid->addWidget(createMBadge(QStringLiteral("M11"), fieldsCard), row, 0);
-    grid->addWidget(createFieldTitle(
-                        QStringLiteral("Приёмник результата АЛУ:"), fieldsCard),
-                    row, 1);
-    grid->addWidget(comboM11_, row, 2);
-    row++;
-  }
 
-  // --- M12: Шина данных D ---
-  {
-    comboM12_ = new SmoothComboBox(fieldsCard);
-    for (const auto &opt : K1804Microcode::m12Options()) {
-      comboM12_->addItem(
-          QStringLiteral("[%1] %2").arg(opt.octalCode, opt.description),
-          opt.code);
+    // --- M9: Источники операндов R и S ---
+    {
+      comboM9_ = new SmoothComboBox();
+      for (const auto &opt : K1804Microcode::m9Options()) {
+        comboM9_->addItem(
+            QStringLiteral("[%1] R :: S = %2").arg(opt.octalCode, opt.shortText),
+            opt.code);
+      }
+      grid->addWidget(createMBadge(QStringLiteral("M9"), comboM9_), row, 0);
+      grid->addWidget(createFieldTitle(QStringLiteral("Источники операндов R, S:"), comboM9_), row, 1);
+      grid->addWidget(comboM9_, row, 2);
+      row++;
     }
-    grid->addWidget(createMBadge(QStringLiteral("M12"), fieldsCard), row, 0);
-    grid->addWidget(
-        createFieldTitle(QStringLiteral("Шина данных D:"), fieldsCard), row, 1);
-    grid->addWidget(comboM12_, row, 2);
-    row++;
-  }
 
-  // --- M13: Загрузка регистра состояния PSW ---
-  {
-    comboM13_ = new SmoothComboBox(fieldsCard);
-    for (const auto &opt : K1804Microcode::m13Options()) {
-      comboM13_->addItem(
-          QStringLiteral("[%1] %2 (%3)")
-              .arg(opt.octalCode, opt.description, opt.shortText),
-          opt.code);
+    // --- M10: Операция АЛУ ---
+    {
+      comboM10_ = new SmoothComboBox();
+      for (const auto &opt : K1804Microcode::m10Options()) {
+        comboM10_->addItem(
+            QStringLiteral("[%1] F = %2").arg(opt.octalCode, opt.shortText),
+            opt.code);
+      }
+      grid->addWidget(createMBadge(QStringLiteral("M10"), comboM10_), row, 0);
+      grid->addWidget(createFieldTitle(QStringLiteral("Операция АЛУ:"), comboM10_), row, 1);
+      grid->addWidget(comboM10_, row, 2);
+      row++;
     }
-    grid->addWidget(createMBadge(QStringLiteral("M13"), fieldsCard), row, 0);
-    grid->addWidget(
-        createFieldTitle(QStringLiteral("Регистр состояния PSW:"), fieldsCard),
-        row, 1);
-    grid->addWidget(comboM13_, row, 2);
-    row++;
-  }
 
-  // --- M14: Выходная шина ---
-  {
-    comboM14_ = new SmoothComboBox(fieldsCard);
-    for (const auto &opt : K1804Microcode::m14Options()) {
-      comboM14_->addItem(
-          QStringLiteral("[%1] %2").arg(opt.octalCode, opt.description),
-          opt.code);
+    // --- M8: Входной перенос C0 ---
+    {
+      comboM8_ = new SmoothComboBox();
+      for (const auto &opt : K1804Microcode::m8Options()) {
+        comboM8_->addItem(
+            QStringLiteral("[%1] C0 = %2").arg(opt.octalCode, opt.shortText),
+            opt.code);
+      }
+      grid->addWidget(createMBadge(QStringLiteral("M8"), comboM8_), row, 0);
+      grid->addWidget(createFieldTitle(QStringLiteral("Входной перенос C0:"), comboM8_), row, 1);
+      grid->addWidget(comboM8_, row, 2);
+      row++;
     }
-    grid->addWidget(createMBadge(QStringLiteral("M14"), fieldsCard), row, 0);
-    grid->addWidget(
-        createFieldTitle(QStringLiteral("Выходная шина:"), fieldsCard), row, 1);
-    grid->addWidget(comboM14_, row, 2);
-    row++;
+
+    // --- M7: Цепь сдвига регистров ---
+    {
+      comboM7_ = new SmoothComboBox();
+      populateM7Combo(false, 0);
+      grid->addWidget(createMBadge(QStringLiteral("M7"), comboM7_), row, 0);
+      grid->addWidget(createFieldTitle(QStringLiteral("Цепь сдвига регистров:"), comboM7_), row, 1);
+      grid->addWidget(comboM7_, row, 2);
+      row++;
+    }
+
+    // --- M11: Приёмник результата АЛУ ---
+    {
+      comboM11_ = new SmoothComboBox();
+      for (const auto &opt : K1804Microcode::m11Options()) {
+        comboM11_->addItem(
+            QStringLiteral("[%1] РОН: %2 (%3) | RQ: %4 (%5) | Вых Y: %6")
+                .arg(opt.octalCode, opt.writeRon, opt.shiftRon, opt.writeRq,
+                     opt.shiftRq, opt.outputY),
+            opt.code);
+      }
+      grid->addWidget(createMBadge(QStringLiteral("M11"), comboM11_), row, 0);
+      grid->addWidget(createFieldTitle(QStringLiteral("Приёмник результата АЛУ:"), comboM11_), row, 1);
+      grid->addWidget(comboM11_, row, 2);
+      row++;
+    }
   }
 
-  // --- M15: Маска константы (8 бит, oct) ---
+  // -------------------------------------------------------------------------
+  // Группа 3: Регистр состояния (PSW)
+  // -------------------------------------------------------------------------
   {
-    auto *w = new QWidget(fieldsCard);
-    auto *hl = new QHBoxLayout(w);
-    hl->setContentsMargins(0, 0, 0, 0);
-    hl->setSpacing(6);
-    editM15Oct_ = new QLineEdit(w);
-    editM15Oct_->setValidator(octValidator8);
-    editM15Oct_->setFixedWidth(90);
-    lblM15Dec_ = new QLabel(QStringLiteral("(= 0 dec, 0..377 oct)"), w);
-    lblM15Dec_->setObjectName(QStringLiteral("octDecHintLabel"));
-    hl->addWidget(editM15Oct_);
-    hl->addWidget(lblM15Dec_);
-    hl->addStretch(1);
+    auto *grid = createSectionBox(QStringLiteral("3. Регистр признаков и состояния (PSW)"));
+    int row = 0;
 
-    grid->addWidget(createMBadge(QStringLiteral("M15"), fieldsCard), row, 0);
-    grid->addWidget(
-        createFieldTitle(QStringLiteral("Маска константы (oct):"), fieldsCard),
-        row, 1);
-    grid->addWidget(w, row, 2);
-    row++;
+    // --- M13: Загрузка регистра состояния PSW ---
+    {
+      comboM13_ = new SmoothComboBox();
+      for (const auto &opt : K1804Microcode::m13Options()) {
+        comboM13_->addItem(
+            QStringLiteral("[%1] %2 (%3)")
+                .arg(opt.octalCode, opt.description, opt.shortText),
+            opt.code);
+      }
+      grid->addWidget(createMBadge(QStringLiteral("M13"), comboM13_), row, 0);
+      grid->addWidget(createFieldTitle(QStringLiteral("Регистр состояния PSW:"), comboM13_), row, 1);
+      grid->addWidget(comboM13_, row, 2);
+      row++;
+    }
   }
 
-  scrollArea->setWidget(fieldsCard);
+  // -------------------------------------------------------------------------
+  // Группа 4: Шины данных и внешние сигналы
+  // -------------------------------------------------------------------------
+  {
+    auto *grid = createSectionBox(QStringLiteral("4. Шины данных и внешние сигналы"));
+    int row = 0;
+
+    // --- M12: Шина данных D ---
+    {
+      comboM12_ = new SmoothComboBox();
+      for (const auto &opt : K1804Microcode::m12Options()) {
+        comboM12_->addItem(
+            QStringLiteral("[%1] %2").arg(opt.octalCode, opt.description),
+            opt.code);
+      }
+      grid->addWidget(createMBadge(QStringLiteral("M12"), comboM12_), row, 0);
+      grid->addWidget(createFieldTitle(QStringLiteral("Шина данных D:"), comboM12_), row, 1);
+      grid->addWidget(comboM12_, row, 2);
+      row++;
+    }
+
+    // --- M14: Выходная шина ---
+    {
+      comboM14_ = new SmoothComboBox();
+      for (const auto &opt : K1804Microcode::m14Options()) {
+        comboM14_->addItem(
+            QStringLiteral("[%1] %2").arg(opt.octalCode, opt.description),
+            opt.code);
+      }
+      grid->addWidget(createMBadge(QStringLiteral("M14"), comboM14_), row, 0);
+      grid->addWidget(createFieldTitle(QStringLiteral("Выходная шина:"), comboM14_), row, 1);
+      grid->addWidget(comboM14_, row, 2);
+      row++;
+    }
+
+    // --- M15: Маска константы (8 бит, oct) ---
+    {
+      auto *w = new QWidget();
+      auto *hl = new QHBoxLayout(w);
+      hl->setContentsMargins(0, 0, 0, 0);
+      hl->setSpacing(6);
+      editM15Oct_ = new QLineEdit(w);
+      editM15Oct_->setValidator(octValidator8);
+      editM15Oct_->setFixedWidth(90);
+      lblM15Dec_ = new QLabel(QStringLiteral("(= 0 dec, 0..377 oct)"), w);
+      lblM15Dec_->setObjectName(QStringLiteral("octDecHintLabel"));
+      hl->addWidget(editM15Oct_);
+      hl->addWidget(lblM15Dec_);
+      hl->addStretch(1);
+
+      grid->addWidget(createMBadge(QStringLiteral("M15"), w), row, 0);
+      grid->addWidget(createFieldTitle(QStringLiteral("Маска константы (oct):"), w), row, 1);
+      grid->addWidget(w, row, 2);
+      row++;
+    }
+  }
+
+  contentLayout->addStretch(1);
+  scrollArea->setWidget(scrollContainer);
   mainLayout->addWidget(scrollArea, 1);
 
   // =========================================================================
@@ -453,6 +469,14 @@ void BlockParamsDialog::setupUi() {
   btnOk_->setDefault(true);
 
   btnLayout->addWidget(btnReset_);
+  auto *btnHelp = new QPushButton(QStringLiteral("Справка..."), this);
+  btnHelp->setToolTip(QStringLiteral("Открыть подробное описание микрокоманд и архитектуры К1804 (F1)"));
+  connect(btnHelp, &QPushButton::clicked, this, [this]() {
+    HelpDialog dlg(this);
+    dlg.exec();
+  });
+  btnLayout->addWidget(btnHelp);
+
   btnLayout->addStretch(1);
   btnLayout->addWidget(btnCancel_);
   btnLayout->addWidget(btnOk_);

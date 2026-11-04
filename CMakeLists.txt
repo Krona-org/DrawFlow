@@ -73,6 +73,8 @@ set(SOURCES
     src/themes/thememanager.h
     src/frames/bParamsDialog/data/blockparamsdialog.h
     src/frames/bParamsDialog/data/blockparamsdialog.cpp
+    src/frames/bParamsDialog/data/helpdialog.h
+    src/frames/bParamsDialog/data/helpdialog.cpp
     src/frames/eLibraryFrame/data/elementslibraryframe.h
     src/frames/eLibraryFrame/data/elementslibraryframe.cpp
     src/frames/eLibraryFrame/ui/elementslibraryframe.ui
