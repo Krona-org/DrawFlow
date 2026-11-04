@@ -413,10 +413,10 @@ void MainWindow::createDockWindows() {
   setCorner(Qt::TopRightCorner, Qt::RightDockWidgetArea);
   setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);
 
-  // 1. Узкая компактная библиотека элементов (слева)
+  // 1. Библиотека элементов (слева)
   libraryDock_ = new ElementsLibraryFrame(scene_, this);
-  libraryDock_->setMinimumWidth(110);
-  libraryDock_->setMaximumWidth(130);
+  libraryDock_->setMinimumWidth(120); // минимальны емаксимальные размеры фрейма
+  libraryDock_->setMaximumWidth(140);
   libraryDock_->setTitleBarWidget(
       createCustomDockTitleBar(QStringLiteral("Фигуры"), libraryDock_));
   addDockWidget(Qt::LeftDockWidgetArea, libraryDock_);
@@ -424,6 +424,7 @@ void MainWindow::createDockWindows() {
   // 2. Дерево объектов (справа сверху)
   elementsDock_ = new WindowElementsFrame(scene_, this);
   elementsDock_->setMinimumWidth(230);
+  elementsDock_->setMaximumWidth(300);
   elementsDock_->setTitleBarWidget(createCustomDockTitleBar(
       QStringLiteral("Дерево объектов"), elementsDock_));
   addDockWidget(Qt::RightDockWidgetArea, elementsDock_);
@@ -431,6 +432,7 @@ void MainWindow::createDockWindows() {
   // 3. Свойства (справа снизу)
   propertyDock_ = new ElementPropertyFrame(scene_, this);
   propertyDock_->setMinimumWidth(230);
+  propertyDock_->setMaximumWidth(300);
   propertyDock_->setTitleBarWidget(
       createCustomDockTitleBar(QStringLiteral("Свойства"), propertyDock_));
   addDockWidget(Qt::RightDockWidgetArea, propertyDock_);
@@ -438,9 +440,10 @@ void MainWindow::createDockWindows() {
   // Разделяем правую часть по вертикали на две аккуратные зоны
   splitDockWidget(elementsDock_, propertyDock_, Qt::Vertical);
 
-  // Поднимаем панель свойств повыше: дерево объектов ~280px (чуть меньше
-  // половины), а свойствам даем основной приоритет по высоте (~620px)
-  resizeDocks({elementsDock_, propertyDock_}, {380, 520}, Qt::Vertical);
+  // Задаем комфортную ширину боковых панелей и высоту правой зоны по умолчанию
+  resizeDocks({libraryDock_, elementsDock_, propertyDock_}, {125, 225, 225},
+              Qt::Horizontal);
+  resizeDocks({elementsDock_, propertyDock_}, {360, 540}, Qt::Vertical);
 
   // Подключение меню "Вид"
   ui->menuView->addSeparator();

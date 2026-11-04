@@ -189,11 +189,12 @@ QSpinBox,
 QDoubleSpinBox,
 QComboBox,
 QPlainTextEdit {
-  background-color: #F8FAFC;
-  border: 1px solid #C2C9D6;
+  background-color: #FFFFFF;
+  border: 1px solid #CBD5E1;
   border-radius: 4px;
   padding: 3px 6px;
-  color: #1E242B;
+  color: #1E293B;
+  font-size: 11px;
   selection-background-color: #3B82F6;
   selection-color: #FFFFFF;
 }
@@ -204,21 +205,60 @@ QDoubleSpinBox:focus,
 QComboBox:focus,
 QPlainTextEdit:focus {
   border-color: #3B82F6;
-  background-color: #FFFFFF;
+}
+
+QComboBox {
+  combobox-popup: 0;
+  padding: 3px 8px;
+  min-height: 22px;
+}
+
+QComboBox:hover {
+  border-color: #94A3B8;
 }
 
 QComboBox::drop-down {
+  subcontrol-origin: padding;
+  subcontrol-position: center right;
+  width: 0px;
   border: none;
-  width: 20px;
+  background: transparent;
+}
+
+QComboBox::down-arrow {
+  image: none;
+  border: none;
+  width: 0px;
+  height: 0px;
 }
 
 QComboBox QAbstractItemView {
   background-color: #FFFFFF;
-  color: #1E242B;
-  border: 1px solid #C2C9D6;
-  selection-background-color: #EFF6FF;
-  selection-color: #1D4ED8;
+  color: #1E293B;
+  border: 1px solid #94A3B8;
+  border-radius: 4px;
+  padding: 2px;
   outline: none;
+  selection-background-color: #DBEAFE;
+  selection-color: #1E3A8A;
+}
+
+QComboBox QAbstractItemView::item {
+  min-height: 22px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: #1E293B;
+}
+
+QComboBox QAbstractItemView::item:hover {
+  background-color: #F1F5F9;
+  color: #0F172A;
+}
+
+QComboBox QAbstractItemView::item:selected {
+  background-color: #DBEAFE;
+  color: #1E3A8A;
+  font-weight: 600;
 }
 
 /* ==================== 7. PushButtons ==================== */
@@ -490,12 +530,12 @@ QLabel#octDecHintLabel {
 }
 
 QLabel#mFieldLabel {
-  color: #1D4ED8;
-  font-weight: 700;
+  color: #334155;
+  font-weight: 600;
   font-size: 11px;
-  background: #DBEAFE;
-  border-radius: 3px;
-  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  padding: 0px;
 }
 
 QFrame#cardFrame {

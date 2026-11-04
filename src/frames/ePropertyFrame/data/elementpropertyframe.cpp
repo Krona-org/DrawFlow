@@ -44,7 +44,7 @@ QString portAddressOptionText(int val) {
 ElementPropertyFrame::ElementPropertyFrame(CanvasScene *scene, QWidget *parent)
     : QDockWidget(parent), ui(new Ui::ElementPropertyFrame), scene_(scene) {
   ui->setupUi(this);
-  setMinimumWidth(265);
+  setMinimumWidth(225); // минимальная ширина фрейма свойств
 
   buildInspectorUi();
 
@@ -214,10 +214,9 @@ void ElementPropertyFrame::buildInspectorUi() {
   // M4
   comboM4_ = new SmoothComboBox(groupMicrocode_);
   for (const auto &opt : K1804Microcode::m4Options()) {
-    comboM4_->addItem(
-        QStringLiteral("[%1] %2 — %3")
-            .arg(opt.octalCode, opt.shortText, opt.description),
-        opt.code);
+    comboM4_->addItem(QStringLiteral("[%1] %2 — %3")
+                          .arg(opt.octalCode, opt.shortText, opt.description),
+                      opt.code);
   }
   formMc->addRow(makeMLabel(QStringLiteral("M4 (БМУ):"),
                             QStringLiteral("Команда перехода БМУ")),
@@ -228,20 +227,18 @@ void ElementPropertyFrame::buildInspectorUi() {
   for (int v = 0; v < 32; ++v) {
     comboM5_->addItem(portAddressOptionText(v), v);
   }
-  formMc->addRow(
-      makeMLabel(QStringLiteral("M5 (Порт A):"),
-                 QStringLiteral("Адрес порта A АЛУ (00..37 oct)")),
-      comboM5_);
+  formMc->addRow(makeMLabel(QStringLiteral("M5 (Порт A):"),
+                            QStringLiteral("Адрес порта A АЛУ (00..37 oct)")),
+                 comboM5_);
 
   // M6
   comboM6_ = new SmoothComboBox(groupMicrocode_);
   for (int v = 0; v < 32; ++v) {
     comboM6_->addItem(portAddressOptionText(v), v);
   }
-  formMc->addRow(
-      makeMLabel(QStringLiteral("M6 (Порт B):"),
-                 QStringLiteral("Адрес порта B АЛУ (00..37 oct)")),
-      comboM6_);
+  formMc->addRow(makeMLabel(QStringLiteral("M6 (Порт B):"),
+                            QStringLiteral("Адрес порта B АЛУ (00..37 oct)")),
+                 comboM6_);
 
   // M7
   comboM7_ = new SmoothComboBox(groupMicrocode_);
@@ -265,8 +262,7 @@ void ElementPropertyFrame::buildInspectorUi() {
   comboM9_ = new SmoothComboBox(groupMicrocode_);
   for (const auto &opt : K1804Microcode::m9Options()) {
     comboM9_->addItem(
-        QStringLiteral("[%1] %2").arg(opt.octalCode, opt.shortText),
-        opt.code);
+        QStringLiteral("[%1] %2").arg(opt.octalCode, opt.shortText), opt.code);
   }
   formMc->addRow(makeMLabel(QStringLiteral("M9 (Опер.):"),
                             QStringLiteral("Источники операндов R и S")),
@@ -279,9 +275,9 @@ void ElementPropertyFrame::buildInspectorUi() {
         QStringLiteral("[%1] F = %2").arg(opt.octalCode, opt.shortText),
         opt.code);
   }
-  formMc->addRow(makeMLabel(QStringLiteral("M10 (АЛУ):"),
-                            QStringLiteral("Операция АЛУ")),
-                 comboM10_);
+  formMc->addRow(
+      makeMLabel(QStringLiteral("M10 (АЛУ):"), QStringLiteral("Операция АЛУ")),
+      comboM10_);
 
   // M11
   comboM11_ = new SmoothComboBox(groupMicrocode_);
@@ -310,13 +306,11 @@ void ElementPropertyFrame::buildInspectorUi() {
   comboM13_ = new SmoothComboBox(groupMicrocode_);
   for (const auto &opt : K1804Microcode::m13Options()) {
     comboM13_->addItem(
-        QStringLiteral("[%1] %2").arg(opt.octalCode, opt.shortText),
-        opt.code);
+        QStringLiteral("[%1] %2").arg(opt.octalCode, opt.shortText), opt.code);
   }
-  formMc->addRow(
-      makeMLabel(QStringLiteral("M13 (PSW):"),
-                 QStringLiteral("Загрузка регистра состояния PSW")),
-      comboM13_);
+  formMc->addRow(makeMLabel(QStringLiteral("M13 (PSW):"),
+                            QStringLiteral("Загрузка регистра состояния PSW")),
+                 comboM13_);
 
   // M14
   comboM14_ = new SmoothComboBox(groupMicrocode_);
@@ -332,8 +326,7 @@ void ElementPropertyFrame::buildInspectorUi() {
   // M15
   editM15Oct_ = new QLineEdit(groupMicrocode_);
   editM15Oct_->setValidator(octValidator8);
-  editM15Oct_->setToolTip(
-      QStringLiteral("M15: Маска константы (0..377 oct)"));
+  editM15Oct_->setToolTip(QStringLiteral("M15: Маска константы (0..377 oct)"));
   formMc->addRow(
       makeMLabel(QStringLiteral("M15 (Маска):"), editM15Oct_->toolTip()),
       editM15Oct_);

@@ -14,7 +14,7 @@ namespace editor {
 
 /**
  * @brief Выпадающий список, который всегда открывается строго вниз под полем
- *        с плавной анимацией раскрытия и аккуратным ограничением высоты/ширины.
+ *        с плавной анимацией раскрытия и строго по ширине самого поля.
  */
 class SmoothComboBox : public QComboBox {
   Q_OBJECT
@@ -29,6 +29,10 @@ public:
     if (view()) {
       view()->setTextElideMode(Qt::ElideRight);
       view()->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+      if (QWidget * container = view()->parentWidget()) {
+        container->setWindowFlags(Qt::Popup | Qt::FramelessWindowHint |
+                                  Qt::NoDropShadowWindowHint);
+      }
     }
 
     anim_ = new QPropertyAnimation(this);
@@ -53,20 +57,19 @@ public:
       return;
     }
 
-    // Вычисляем оптимальную ширину и высоту выпадающего списка
+    // Вычисляем высоту и фиксируем ширину ровно по ширине самого комбобокса,
+    // чтобы выпадающий список никогда не выходил за пределы панели или окна
     int count = this->count();
     int visibleRows = qMin(count, maxVisibleItems());
-    int rowH = 28;
+    int rowH = 26;
     if (view() && count > 0) {
       int hintH = view()->sizeHintForRow(0);
       if (hintH > 18) {
         rowH = hintH;
       }
     }
-    int targetH = qMax(36, visibleRows * rowH + 8);
-
-    int contentW = view() ? (view()->sizeHintForColumn(0) + 32) : width();
-    int targetW = qMax(width(), qMin(contentW, 420));
+    int targetH = qMax(32, visibleRows * rowH + 6);
+    int targetW = width();
 
     // Позиция строго под комбобоксом
     QPoint belowGlobal = mapToGlobal(QPoint(0, height() + 2));
@@ -76,16 +79,13 @@ public:
     }
     if (scr) {
       QRect avail = scr->availableGeometry();
-      if (belowGlobal.x() + targetW > avail.right() - 4) {
-        belowGlobal.setX(qMax(avail.left() + 4, avail.right() - targetW - 4));
+      if (belowGlobal.x() + targetW > avail.right() - 2) {
+        belowGlobal.setX(qMax(avail.left() + 2, avail.right() - targetW - 2));
       }
-      // Если внизу совсем не помещается, уменьшаем высоту, но оставляем
-      // открытие вниз
       int spaceBelow = avail.bottom() - belowGlobal.y() - 6;
       if (spaceBelow >= 110 && targetH > spaceBelow) {
         targetH = spaceBelow;
       } else if (spaceBelow < 110) {
-        // Крайний случай: сам комбобокс у самого нижнего края экрана
         belowGlobal.setY(mapToGlobal(QPoint(0, -targetH - 2)).y());
       }
     }
@@ -93,6 +93,8 @@ public:
     QRect startRect(belowGlobal.x(), belowGlobal.y(), targetW, 2);
     QRect endRect(belowGlobal.x(), belowGlobal.y(), targetW, targetH);
 
+    popup->setMinimumWidth(targetW);
+    popup->setMaximumWidth(targetW);
     popup->setMinimumHeight(0);
     popup->setGeometry(startRect);
     anim_->setTargetObject(popup);
