@@ -22,7 +22,9 @@ enum class ResizeHandle {
     Left,
     Point1,
     Point2,
-    Rotate
+    Rotate,
+    ConnectorSegmentBase = 100,
+    ConnectorBendBase = 200
 };
 
 class ShapeElement : public QGraphicsObject {

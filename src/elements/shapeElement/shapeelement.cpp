@@ -1,5 +1,6 @@
 #include "shapeelement.h"
 #include "src/canvas/canvasscene.h"
+#include "src/elements/masterBlockElement/masterblockelement.h"
 
 #include <QCursor>
 #include <QGraphicsSceneMouseEvent>
@@ -176,7 +177,6 @@ QVariant ShapeElement::itemChange(GraphicsItemChange change, const QVariant &val
     }
     if (change == ItemPositionHasChanged) {
         emit geometryChanged();
-        emit propertyChanged();
     }
     return QGraphicsObject::itemChange(change, value);
 }
@@ -250,7 +250,6 @@ void ShapeElement::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
         }
         moveHandle(activeHandle_, event->scenePos(), snap, gSize);
         emit geometryChanged();
-        emit propertyChanged();
         event->accept();
         return;
     }
@@ -261,6 +260,13 @@ void ShapeElement::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
     if (isDraggingHandle_) {
         isDraggingHandle_ = false;
         activeHandle_ = ResizeHandle::None;
+        if (auto s = dynamic_cast<CanvasScene*>(scene())) {
+            for (QGraphicsItem *item : s->items()) {
+                if (auto b = dynamic_cast<MasterBlockElement*>(item)) {
+                    b->setHoveredPort(PortPosition::None);
+                }
+            }
+        }
         event->accept();
         return;
     }

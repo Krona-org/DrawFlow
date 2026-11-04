@@ -16,6 +16,7 @@ MaskElement::MaskElement(quint32 id, const QString &name, const QUuid &uid,
     borderStyle_ = Qt::NoPen;
     fillColor_ = Qt::white;
     fillStyle_ = Qt::SolidPattern;
+    setCacheMode(QGraphicsItem::DeviceCoordinateCache);
 }
 
 void MaskElement::setRect(const QRectF &r) {
@@ -64,8 +65,11 @@ void MaskElement::drawShape(QPainter *painter) {
 
     // Отрисовка текста битовой маски ("1111111XXX")
     painter->setPen(borderColor_);
-    QFont font(QStringLiteral("Arial"));
-    font.setPixelSize(11);
+    static const QFont font = []() {
+        QFont f(QStringLiteral("Arial"));
+        f.setPixelSize(11);
+        return f;
+    }();
     painter->setFont(font);
     painter->drawText(r.adjusted(3.0, 1.0, -3.0, -1.0), Qt::AlignCenter, maskText_);
 }

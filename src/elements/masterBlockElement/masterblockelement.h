@@ -21,9 +21,12 @@ public:
   void setRect(const QRectF &r);
   void setRectSize(qreal w, qreal h);
 
-  // Геометрия верхних бейджей
+  // Геометрия верхних бейджей и полный прямоугольник препятствия
   QRectF leftBadgeRect() const;
   QRectF rightBadgeRect() const;
+  QRectF obstacleRect() const {
+    return rect_.united(leftBadgeRect()).united(rightBadgeRect());
+  }
 
   // Свойства микрокоманды (по модели K1804 Visual Editor)
   quint16 address() const { return address_; }
@@ -70,6 +73,7 @@ public:
 
 protected:
   void drawShape(QPainter *painter) override;
+  QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
 
   void hoverEnterEvent(QGraphicsSceneHoverEvent *event) override;
   void hoverMoveEvent(QGraphicsSceneHoverEvent *event) override;

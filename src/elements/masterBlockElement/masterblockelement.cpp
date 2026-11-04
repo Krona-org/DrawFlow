@@ -1,4 +1,5 @@
 #include "masterblockelement.h"
+#include "src/canvas/canvasscene.h"
 #include "src/elements/masterBlockElement/k1804microcode.h"
 
 #include <QCursor>
@@ -17,29 +18,13 @@ MasterBlockElement::MasterBlockElement(quint32 id, const QString &name,
   borderColor_ = QColor(24, 24, 27);
   borderWidth_ = 1.5;
   setAcceptHoverEvents(true);
+  setCacheMode(QGraphicsItem::DeviceCoordinateCache);
 
-  // Начальные значения по умолчанию в соответствии с визуальным стилем К1804
+  // По умолчанию блок пустой: заполнены только номер шага и адрес, микрокоманда не задана
   address_ = static_cast<quint16>(id > 0 ? id : 1);
   stepName_ = QString::number(address_);
-
-  // Начальные микрокомандные поля (дают эталонную мнемонику из Visio)
-  mFields_[1] = 1;
-  mFields_[2] = 0;
-  mFields_[3] = 3; // PSW[3]
-  mFields_[4] = 3; // CJP
-  mFields_[5] = 0; // R 0
-  mFields_[6] = 3; // R 3
-  mFields_[7] = 0;
-  mFields_[8] = 0;
-  mFields_[9] = 3;  // 0 :: B
-  mFields_[10] = 3; // R v S
-  mFields_[11] = 1; // Выход F без записи в регистр
-  mFields_[12] = 3; // PSW --> D
-  mFields_[13] = 3; // PSW <-- Y
-  mFields_[14] = 0; // null -> NOP
-  mFields_[15] = 3;
-
-  lines_ = K1804Microcode::generateBlockLines(mFields_);
+  mFields_.fill(0);
+  lines_.fill(QString());
 }
 
 void MasterBlockElement::setRect(const QRectF &r) {
@@ -48,16 +33,17 @@ void MasterBlockElement::setRect(const QRectF &r) {
     rect_ = r;
     update();
     emit geometryChanged();
-    emit propertyChanged();
   }
 }
 
 void MasterBlockElement::setRectSize(qreal w, qreal h) {
-  prepareGeometryChange();
-  rect_.setSize(QSizeF(qMax(120.0, w), qMax(80.0, h)));
-  update();
-  emit geometryChanged();
-  emit propertyChanged();
+  QSizeF newSize(qMax(120.0, w), qMax(80.0, h));
+  if (rect_.size() != newSize) {
+    prepareGeometryChange();
+    rect_.setSize(newSize);
+    update();
+    emit geometryChanged();
+  }
 }
 
 QRectF MasterBlockElement::leftBadgeRect() const {
@@ -295,10 +281,17 @@ void MasterBlockElement::drawPortMarker(QPainter *painter, const QPointF &pt,
     painter->setPen(ringPen);
     painter->setBrush(QColor(219, 234, 254));
     painter->drawEllipse(pt, 6.0, 6.0);
+  } else if (showPortsAlways_) {
+    // Режим подключения: полупрозрачные синие точки магнитов на всех портах
+    QPen ringPen(QColor(37, 99, 235, 170), 1.5);
+    ringPen.setCosmetic(true);
+    painter->setPen(ringPen);
+    painter->setBrush(QColor(239, 246, 255, 220));
+    painter->drawEllipse(pt, 4.5, 4.5);
   }
 
   // Синий крестик «x» как в оригинале Visio
-  QColor crossColor = isSnapping ? QColor(16, 185, 129) : QColor(0, 70, 228);
+  QColor crossColor = isSnapping ? QColor(16, 185, 129) : (showPortsAlways_ ? QColor(37, 99, 235) : QColor(0, 70, 228));
   QPen xPen(crossColor, 2.0, Qt::SolidLine, Qt::SquareCap);
   xPen.setCosmetic(true);
   painter->setPen(xPen);
@@ -332,7 +325,7 @@ void MasterBlockElement::drawShape(QPainter *painter) {
 
   // 3. Текст внутри верхних бейджей
   painter->setPen(borderColor_);
-  QFont badgeFont(QStringLiteral("Segoe UI"), 10, QFont::Bold);
+  static const QFont badgeFont(QStringLiteral("Segoe UI"), 10, QFont::Bold);
   painter->setFont(badgeFont);
 
   painter->drawText(leftBadge, Qt::AlignCenter, stepName_);
@@ -340,7 +333,7 @@ void MasterBlockElement::drawShape(QPainter *painter) {
                     K1804Microcode::toOctal(address_));
 
   // 4. Отрисовка 6 центрированных строк микрокоманды
-  QFont bodyFont(QStringLiteral("Segoe UI"), 9, QFont::Normal);
+  static const QFont bodyFont(QStringLiteral("Segoe UI"), 9, QFont::Normal);
   painter->setFont(bodyFont);
 
   const qreal topMargin = rect_.top() + 16.0;
@@ -435,12 +428,29 @@ void MasterBlockElement::moveHandle(ResizeHandle handle,
     return;
   }
 
+  QRectF newRect(0, 0, newRight - newLeft, newBottom - newTop);
+  if (pos() == QPointF(newLeft, newTop) && rect_ == newRect) {
+    return;
+  }
+
   prepareGeometryChange();
   setPos(newLeft, newTop);
-  rect_ = QRectF(0, 0, newRight - newLeft, newBottom - newTop);
+  rect_ = newRect;
   update();
+  if (auto s = dynamic_cast<CanvasScene *>(scene())) {
+    s->notifyBlockMoved(this);
+  }
   emit geometryChanged();
-  emit propertyChanged();
+}
+
+QVariant MasterBlockElement::itemChange(GraphicsItemChange change,
+                                        const QVariant &value) {
+  if (change == ItemPositionHasChanged) {
+    if (auto s = dynamic_cast<CanvasScene *>(scene())) {
+      s->notifyBlockMoved(this);
+    }
+  }
+  return ShapeElement::itemChange(change, value);
 }
 
 } // namespace editor
