@@ -96,9 +96,10 @@ set(SOURCES
 
 if(WIN32)
     list(APPEND SOURCES resources/app.rc)
+    add_executable(drawflow WIN32 ${SOURCES})
+else()
+    add_executable(drawflow ${SOURCES})
 endif()
-
-add_executable(drawflow ${SOURCES})
 
 target_link_libraries(drawflow PRIVATE
     Qt6::Core
