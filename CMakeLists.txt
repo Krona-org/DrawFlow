@@ -11,6 +11,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTOUIC_SEARCH_PATHS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/frames
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/frames/ePropertyFrame/ui
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/frames/eLibraryFrame/ui
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/frames/wElementsFrame/ui
+)
 
 if(EXISTS "C:/Qt/6.10.2/mingw_64")
     list(PREPEND CMAKE_PREFIX_PATH "C:/Qt/6.10.2/mingw_64")
@@ -26,23 +32,29 @@ find_package(Qt6 REQUIRED COMPONENTS
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/elements
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/elements/common
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/elements/shapeElement
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/elements/connectorElement
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/elements/masterBlockElement
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/elements/maskElement
 )
 
 set(SOURCES
     src/main.cpp
 
-    src/elements/elementtype.h
-    src/elements/portposition.h
-    src/elements/k1804microcode.h
-    src/elements/k1804microcode.cpp
-    src/elements/shapeelement.h
-    src/elements/shapeelement.cpp
-    src/elements/masterblockelement.h
-    src/elements/masterblockelement.cpp
-    src/elements/connectorelement.h
-    src/elements/connectorelement.cpp
-    src/elements/maskelement.h
-    src/elements/maskelement.cpp
+    src/elements/common/elementtype.h
+    src/elements/common/portposition.h
+    src/elements/masterBlockElement/k1804microcode.h
+    src/elements/masterBlockElement/k1804microcode.cpp
+    src/elements/shapeElement/shapeelement.h
+    src/elements/shapeElement/shapeelement.cpp
+    src/elements/masterBlockElement/masterblockelement.h
+    src/elements/masterBlockElement/masterblockelement.cpp
+    src/elements/connectorElement/connectorelement.h
+    src/elements/connectorElement/connectorelement.cpp
+    src/elements/maskElement/maskelement.h
+    src/elements/maskElement/maskelement.cpp
 
     src/canvas/canvasscene.h
     src/canvas/canvasscene.cpp
@@ -55,18 +67,18 @@ set(SOURCES
     src/canvas/undocommands.h
     src/canvas/undocommands.cpp
 
-    src/frames/smoothcombobox.h
-    src/frames/blockparamsdialog.h
-    src/frames/blockparamsdialog.cpp
-    src/frames/elementslibraryframe.h
-    src/frames/elementslibraryframe.cpp
-    src/frames/elementslibraryframe.ui
-    src/frames/windowelementsframe.h
-    src/frames/windowelementsframe.cpp
-    src/frames/windowelementsframe.ui
-    src/frames/elementpropertyframe.h
-    src/frames/elementpropertyframe.cpp
-    src/frames/elementpropertyframe.ui
+    src/widgets/smoothcombobox.h
+    src/frames/bParamsDialog/data/blockparamsdialog.h
+    src/frames/bParamsDialog/data/blockparamsdialog.cpp
+    src/frames/eLibraryFrame/data/elementslibraryframe.h
+    src/frames/eLibraryFrame/data/elementslibraryframe.cpp
+    src/frames/eLibraryFrame/ui/elementslibraryframe.ui
+    src/frames/wElementsFrame/data/windowelementsframe.h
+    src/frames/wElementsFrame/data/windowelementsframe.cpp
+    src/frames/wElementsFrame/ui/windowelementsframe.ui
+    src/frames/ePropertyFrame/data/elementpropertyframe.h
+    src/frames/ePropertyFrame/data/elementpropertyframe.cpp
+    src/frames/ePropertyFrame/ui/elementpropertyframe.ui
 
     src/core/projectstorage.h
     src/core/projectstorage.cpp

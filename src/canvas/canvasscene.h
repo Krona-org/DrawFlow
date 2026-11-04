@@ -1,11 +1,11 @@
 #pragma once
 
-#include "src/elements/connectorelement.h"
-#include "src/elements/elementtype.h"
-#include "src/elements/maskelement.h"
-#include "src/elements/masterblockelement.h"
-#include "src/elements/portposition.h"
-#include "src/elements/shapeelement.h"
+#include "src/elements/connectorElement/connectorelement.h"
+#include "src/elements/common/elementtype.h"
+#include "src/elements/maskElement/maskelement.h"
+#include "src/elements/masterBlockElement/masterblockelement.h"
+#include "src/elements/common/portposition.h"
+#include "src/elements/shapeElement/shapeelement.h"
 
 #include <QGraphicsScene>
 #include <QList>

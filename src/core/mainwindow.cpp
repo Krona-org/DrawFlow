@@ -1,8 +1,8 @@
 #include "mainwindow.h"
 #include "projectstorage.h"
 #include "src/canvas/canvasview.h"
-#include "src/elements/connectorelement.h"
-#include "src/elements/masterblockelement.h"
+#include "src/elements/connectorElement/connectorelement.h"
+#include "src/elements/masterBlockElement/masterblockelement.h"
 #include "ui_mainwindow.h"
 
 #include <QActionGroup>

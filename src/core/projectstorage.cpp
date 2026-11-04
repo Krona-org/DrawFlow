@@ -1,8 +1,8 @@
 #include "projectstorage.h"
 
-#include "src/elements/connectorelement.h"
-#include "src/elements/maskelement.h"
-#include "src/elements/masterblockelement.h"
+#include "src/elements/connectorElement/connectorelement.h"
+#include "src/elements/maskElement/maskelement.h"
+#include "src/elements/masterBlockElement/masterblockelement.h"
 
 #include <QDataStream>
 #include <QDomDocument>

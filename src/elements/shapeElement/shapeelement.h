@@ -1,6 +1,6 @@
 #pragma once
 
-#include "elementtype.h"
+#include "src/elements/common/elementtype.h"
 
 #include <QBrush>
 #include <QColor>

@@ -1,9 +1,9 @@
 #pragma once
 
 #include "src/canvas/canvastabwidget.h"
-#include "src/frames/elementpropertyframe.h"
-#include "src/frames/elementslibraryframe.h"
-#include "src/frames/windowelementsframe.h"
+#include "src/frames/ePropertyFrame/data/elementpropertyframe.h"
+#include "src/frames/eLibraryFrame/data/elementslibraryframe.h"
+#include "src/frames/wElementsFrame/data/windowelementsframe.h"
 
 #include <QList>
 #include <QMainWindow>

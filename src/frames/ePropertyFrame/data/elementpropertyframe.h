@@ -1,6 +1,6 @@
 #pragma once
 
-#include "src/elements/shapeelement.h"
+#include "src/elements/shapeElement/shapeelement.h"
 
 #include <QDockWidget>
 #include <array>

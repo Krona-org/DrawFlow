@@ -1,7 +1,7 @@
 #pragma once
 
-#include "src/elements/k1804microcode.h"
-#include "src/elements/masterblockelement.h"
+#include "src/elements/masterBlockElement/k1804microcode.h"
+#include "src/elements/masterBlockElement/masterblockelement.h"
 
 #include <QDialog>
 #include <array>

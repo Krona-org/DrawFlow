@@ -1,5 +1,5 @@
 #include "blockparamsdialog.h"
-#include "smoothcombobox.h"
+#include "src/widgets/smoothcombobox.h"
 
 #include "src/canvas/canvasscene.h"
 #include "src/canvas/undocommands.h"

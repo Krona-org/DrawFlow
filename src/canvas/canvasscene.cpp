@@ -1,6 +1,6 @@
 #include "canvasscene.h"
 #include "orthogonalrouter.h"
-#include "src/frames/blockparamsdialog.h"
+#include "src/frames/bParamsDialog/data/blockparamsdialog.h"
 #include "undocommands.h"
 
 #include <QGraphicsSceneMouseEvent>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "src/elements/elementtype.h"
+#include "src/elements/common/elementtype.h"
 
 #include <QDockWidget>
 #include <QFrame>

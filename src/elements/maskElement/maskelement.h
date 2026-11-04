@@ -1,6 +1,6 @@
 #pragma once
 
-#include "shapeelement.h"
+#include "src/elements/shapeElement/shapeelement.h"
 
 namespace editor {
 
