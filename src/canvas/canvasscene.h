@@ -2,6 +2,7 @@
 
 #include "src/elements/connectorelement.h"
 #include "src/elements/elementtype.h"
+#include "src/elements/maskelement.h"
 #include "src/elements/masterblockelement.h"
 #include "src/elements/portposition.h"
 #include "src/elements/shapeelement.h"
@@ -65,6 +66,7 @@ public:
   findPortAt(const QPointF &scenePos, MasterBlockElement *exclude = nullptr,
              qreal maxDist = 24.0) const;
   void setConnectingMode(bool connecting);
+  void openBlockParamsDialog(MasterBlockElement *block);
 
 signals:
   void elementAdded(ShapeElement *element);
@@ -79,6 +81,7 @@ protected:
   void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
   void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
   void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
+  void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) override;
   void keyPressEvent(QKeyEvent *event) override;
 
 private:
@@ -140,9 +143,23 @@ private:
     qreal zValue = 0.0;
   };
 
+  struct MaskClipboardData {
+    QString name;
+    QPointF pos;
+    QRectF rect;
+    QString maskText;
+    QColor borderColor;
+    qreal borderWidth = 1.0;
+    Qt::PenStyle borderStyle = Qt::NoPen;
+    QColor fillColor;
+    Qt::BrushStyle fillStyle = Qt::SolidPattern;
+    qreal zValue = 0.0;
+  };
+
   struct SceneClipboard {
     QList<MasterBlockClipboardData> blocks;
     QList<ConnectorClipboardData> connectors;
+    QList<MaskClipboardData> masks;
     int pasteCount = 0;
   };
 
@@ -160,6 +177,7 @@ private:
   quint32 nextElementId_ = 1;
   quint32 masterBlockCount_ = 0;
   quint32 connectorCount_ = 0;
+  quint32 maskCount_ = 0;
 };
 
 } // namespace editor

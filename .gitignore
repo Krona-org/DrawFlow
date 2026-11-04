@@ -41,3 +41,11 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
+# Python & scripts cache
+__pycache__/
+*.pyc
+
+# Research, macros, and test exports
+macros/
+test_export/
+

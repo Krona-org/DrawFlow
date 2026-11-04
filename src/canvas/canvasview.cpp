@@ -147,6 +147,8 @@ void CanvasView::dropEvent(QDropEvent *event) {
             scene_->addElementAt(ElementType::MasterBlock, scenePos);
         } else if (typeStr == QStringLiteral("connector") || typeStr == QStringLiteral("line")) {
             scene_->addElementAt(ElementType::Connector, scenePos);
+        } else if (typeStr == QStringLiteral("mask")) {
+            scene_->addElementAt(ElementType::Mask, scenePos);
         }
 
         event->acceptProposedAction();

@@ -58,6 +58,7 @@ private:
     CanvasScene *scene_ = nullptr;
     ShapeCard *masterBlockCard_ = nullptr;
     ShapeCard *connectorCard_ = nullptr;
+    ShapeCard *maskCard_ = nullptr;
 };
 
 } // namespace editor

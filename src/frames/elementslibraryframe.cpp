@@ -82,7 +82,12 @@ void ShapeCard::mouseMoveEvent(QMouseEvent *event) {
     auto drag = new QDrag(this);
     auto mimeData = new QMimeData();
 
-    QString typeStr = (type_ == ElementType::MasterBlock) ? QStringLiteral("masterblock") : QStringLiteral("connector");
+    QString typeStr = QStringLiteral("connector");
+    if (type_ == ElementType::MasterBlock) {
+        typeStr = QStringLiteral("masterblock");
+    } else if (type_ == ElementType::Mask) {
+        typeStr = QStringLiteral("mask");
+    }
     mimeData->setData(QStringLiteral("application/x-drawflow-element-type"), typeStr.toUtf8());
     drag->setMimeData(mimeData);
 
@@ -109,6 +114,18 @@ void ShapeCard::mouseMoveEvent(QMouseEvent *event) {
         p.drawPoint(56, 16);
         p.drawPoint(56, 25);
         p.drawPoint(56, 34);
+    } else if (type_ == ElementType::Mask) {
+        // Отрисовка плашки битовой маски (1111111XXX)
+        p.setPen(QPen(QColor(100, 116, 139), 1.0, Qt::DashLine));
+        p.setBrush(QColor(255, 255, 255, 235));
+        QRectF r(4, 14, 52, 16);
+        p.drawRect(r);
+        p.setPen(QColor(15, 23, 42));
+        QFont f(QStringLiteral("Consolas"));
+        f.setPixelSize(8);
+        f.setBold(true);
+        p.setFont(f);
+        p.drawText(r, Qt::AlignCenter, QStringLiteral("1111111XXX"));
     } else {
         // Отрисовка ступени коннектора
         p.setPen(QPen(QColor(37, 99, 235), 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
@@ -141,10 +158,12 @@ ElementsLibraryFrame::ElementsLibraryFrame(CanvasScene *scene, QWidget *parent)
 
     masterBlockCard_ = new ShapeCard(ElementType::MasterBlock, QStringLiteral("K1804 MasterBlock"), QStringLiteral(":/masterblock.svg"), this);
     connectorCard_ = new ShapeCard(ElementType::Connector, QStringLiteral("Connector"), QStringLiteral(":/connector.svg"), this);
+    maskCard_ = new ShapeCard(ElementType::Mask, QStringLiteral("Mask"), QStringLiteral(":/mask.svg"), this);
 
     // Вставляем карточки перед пружиной (verticalSpacer)
     ui->mainLayout->insertWidget(0, masterBlockCard_);
     ui->mainLayout->insertWidget(1, connectorCard_);
+    ui->mainLayout->insertWidget(2, maskCard_);
 
     auto handleCardClick = [this](ElementType t) {
         if (scene_->activeTool() == t) {
@@ -156,6 +175,7 @@ ElementsLibraryFrame::ElementsLibraryFrame(CanvasScene *scene, QWidget *parent)
 
     connect(masterBlockCard_, &ShapeCard::clicked, this, handleCardClick);
     connect(connectorCard_, &ShapeCard::clicked, this, handleCardClick);
+    connect(maskCard_, &ShapeCard::clicked, this, handleCardClick);
 
     connect(scene_, &CanvasScene::activeToolChanged, this, &ElementsLibraryFrame::onToolChanged);
 }
@@ -180,6 +200,7 @@ void ElementsLibraryFrame::setScene(CanvasScene *scene) {
 void ElementsLibraryFrame::onToolChanged(ElementType tool) {
     if (masterBlockCard_) masterBlockCard_->setActive(tool == ElementType::MasterBlock);
     if (connectorCard_) connectorCard_->setActive(tool == ElementType::Connector);
+    if (maskCard_) maskCard_->setActive(tool == ElementType::Mask);
 }
 
 } // namespace editor

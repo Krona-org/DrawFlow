@@ -255,4 +255,35 @@ void ResizeConnectorCommand::redo() {
     connectorItem_->setPoints(newPoints_);
 }
 
+// --- ModifyMasterBlockParamsCommand ---
+ModifyMasterBlockParamsCommand::ModifyMasterBlockParamsCommand(CanvasScene *scene,
+                                                               MasterBlockElement *block,
+                                                               const BlockState &oldState,
+                                                               const BlockState &newState,
+                                                               QUndoCommand *parent)
+    : QUndoCommand(parent)
+    , scene_(scene)
+    , blockItem_(block)
+    , oldState_(oldState)
+    , newState_(newState)
+{
+    setText(QStringLiteral("Параметры микрокоманды: %1").arg(block ? block->name() : QString()));
+}
+
+void ModifyMasterBlockParamsCommand::undo() {
+    if (!scene_ || !blockItem_ || blockItem_->scene() != scene_) return;
+    blockItem_->setStepName(oldState_.stepName);
+    blockItem_->setAddress(oldState_.address);
+    blockItem_->setAllMFields(oldState_.mFields);
+    blockItem_->setAllLines(oldState_.lines);
+}
+
+void ModifyMasterBlockParamsCommand::redo() {
+    if (!scene_ || !blockItem_ || blockItem_->scene() != scene_) return;
+    blockItem_->setStepName(newState_.stepName);
+    blockItem_->setAddress(newState_.address);
+    blockItem_->setAllMFields(newState_.mFields);
+    blockItem_->setAllLines(newState_.lines);
+}
+
 } // namespace editor

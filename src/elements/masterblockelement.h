@@ -39,6 +39,9 @@ public:
     // Микрокомандные поля (M1..M15) для бинарного экспорта
     quint16 mField(int index) const;
     void setMField(int index, quint16 val);
+    const std::array<quint16, 16>& allMFields() const { return mFields_; }
+    void setAllMFields(const std::array<quint16, 16> &fields);
+    void regenerateLinesFromMFields();
 
     // Точки подключения (порты) для коннекторов
     PortPosition portAt(const QPointF &localPos) const;

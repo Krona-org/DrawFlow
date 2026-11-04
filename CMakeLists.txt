@@ -33,12 +33,16 @@ set(SOURCES
 
     src/elements/elementtype.h
     src/elements/portposition.h
+    src/elements/k1804microcode.h
+    src/elements/k1804microcode.cpp
     src/elements/shapeelement.h
     src/elements/shapeelement.cpp
     src/elements/masterblockelement.h
     src/elements/masterblockelement.cpp
     src/elements/connectorelement.h
     src/elements/connectorelement.cpp
+    src/elements/maskelement.h
+    src/elements/maskelement.cpp
 
     src/canvas/canvasscene.h
     src/canvas/canvasscene.cpp
@@ -51,6 +55,9 @@ set(SOURCES
     src/canvas/undocommands.h
     src/canvas/undocommands.cpp
 
+    src/frames/smoothcombobox.h
+    src/frames/blockparamsdialog.h
+    src/frames/blockparamsdialog.cpp
     src/frames/elementslibraryframe.h
     src/frames/elementslibraryframe.cpp
     src/frames/elementslibraryframe.ui
@@ -69,6 +76,10 @@ set(SOURCES
 
     resources/resources.qrc
 )
+
+if(WIN32)
+    list(APPEND SOURCES resources/app.rc)
+endif()
 
 add_executable(drawflow ${SOURCES})
 

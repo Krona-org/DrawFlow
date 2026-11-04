@@ -2,6 +2,7 @@
 
 #include <QApplication>
 #include <QFont>
+#include <QIcon>
 #include <QStyleFactory>
 
 int main(int argc, char *argv[]) {
@@ -9,6 +10,7 @@ int main(int argc, char *argv[]) {
 
     QApplication::setOrganizationName(QStringLiteral("TREI"));
     QApplication::setApplicationName(QStringLiteral("DrawFlow"));
+    app.setWindowIcon(QIcon(QStringLiteral(":/app_icon.png")));
 
     // Использовать чистый современный шрифт
     QFont font(QStringLiteral("Segoe UI"), 9);

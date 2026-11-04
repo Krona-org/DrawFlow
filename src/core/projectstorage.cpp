@@ -1,6 +1,7 @@
 #include "projectstorage.h"
 
 #include "src/elements/connectorelement.h"
+#include "src/elements/maskelement.h"
 #include "src/elements/masterblockelement.h"
 
 #include <QDataStream>
@@ -13,6 +14,7 @@ namespace editor {
 
 static QString penStyleToString(Qt::PenStyle style) {
     switch (style) {
+    case Qt::NoPen: return QStringLiteral("NoPen");
     case Qt::DashLine: return QStringLiteral("DashLine");
     case Qt::DotLine: return QStringLiteral("DotLine");
     case Qt::DashDotLine: return QStringLiteral("DashDotLine");
@@ -21,6 +23,7 @@ static QString penStyleToString(Qt::PenStyle style) {
 }
 
 static Qt::PenStyle penStyleFromString(const QString &str) {
+    if (str == QStringLiteral("NoPen")) return Qt::NoPen;
     if (str == QStringLiteral("DashLine")) return Qt::DashLine;
     if (str == QStringLiteral("DotLine")) return Qt::DotLine;
     if (str == QStringLiteral("DashDotLine")) return Qt::DashDotLine;
@@ -132,6 +135,12 @@ bool ProjectStorage::saveToFile(const QString &filePath, const QString &projectN
                 ptsStr.append(QStringLiteral("%1,%2").arg(pt.x()).arg(pt.y()));
             }
             elemNode.setAttribute(QStringLiteral("points"), ptsStr);
+        } else if (auto mask = dynamic_cast<MaskElement*>(element)) {
+            elemNode.setAttribute(QStringLiteral("type"), QStringLiteral("mask"));
+            elemNode.setAttribute(QStringLiteral("width"), QString::number(mask->rect().width()));
+            elemNode.setAttribute(QStringLiteral("height"), QString::number(mask->rect().height()));
+            elemNode.setAttribute(QStringLiteral("maskText"), mask->maskText());
+            elemNode.setAttribute(QStringLiteral("fill"), mask->fillColor().name());
         }
 
         elementsNode.appendChild(elemNode);
@@ -312,6 +321,21 @@ bool ProjectStorage::loadFromFile(const QString &filePath, QString &projectName,
 
             scene->addItem(conn);
             emit scene->elementAdded(conn);
+        } else if (type == QStringLiteral("mask")) {
+            auto mask = new MaskElement(id, name, uid);
+            mask->setPos(x, y);
+            qreal w = elemNode.attribute(QStringLiteral("width"), QStringLiteral("100")).toDouble();
+            qreal h = elemNode.attribute(QStringLiteral("height"), QStringLiteral("22")).toDouble();
+            mask->setRect(QRectF(0, 0, w, h));
+            mask->setMaskText(elemNode.attribute(QStringLiteral("maskText"), QStringLiteral("1111111XXX")));
+            mask->setFillColor(QColor(elemNode.attribute(QStringLiteral("fill"), QStringLiteral("#ffffff"))));
+            mask->setBorderColor(stroke);
+            mask->setBorderWidth(strokeWidth);
+            mask->setBorderStyle(strokeStyle);
+            mask->setZValue(z);
+
+            scene->addItem(mask);
+            emit scene->elementAdded(mask);
         }
     }
 

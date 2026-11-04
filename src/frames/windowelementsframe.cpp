@@ -65,6 +65,8 @@ void WindowElementsFrame::refreshElementsList() {
             item->setIcon(0, QIcon(QStringLiteral(":/masterblock.svg")));
         } else if (element->elementType() == ElementType::Connector) {
             item->setIcon(0, QIcon(QStringLiteral(":/connector.svg")));
+        } else if (element->elementType() == ElementType::Mask) {
+            item->setIcon(0, QIcon(QStringLiteral(":/mask.svg")));
         }
 
         if (element->isSelected()) {

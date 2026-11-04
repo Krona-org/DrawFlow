@@ -116,4 +116,30 @@ private:
     QVector<QPointF> newPoints_;
 };
 
+// 6. Команда изменения параметров микрокоманды блока K1804 MasterBlock
+class ModifyMasterBlockParamsCommand : public QUndoCommand {
+public:
+    struct BlockState {
+        QString stepName;
+        quint16 address = 1;
+        std::array<quint16, 16> mFields{};
+        std::array<QString, 6> lines;
+    };
+
+    ModifyMasterBlockParamsCommand(CanvasScene *scene,
+                                   MasterBlockElement *block,
+                                   const BlockState &oldState,
+                                   const BlockState &newState,
+                                   QUndoCommand *parent = nullptr);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    CanvasScene *scene_;
+    MasterBlockElement *blockItem_;
+    BlockState oldState_;
+    BlockState newState_;
+};
+
 } // namespace editor

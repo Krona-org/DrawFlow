@@ -7,7 +7,8 @@ namespace editor {
 enum class ElementType {
     None = 0,
     MasterBlock,
-    Connector
+    Connector,
+    Mask
 };
 
 inline QString elementTypeName(ElementType type) {
@@ -16,6 +17,8 @@ inline QString elementTypeName(ElementType type) {
         return QStringLiteral("K1804 MasterBlock");
     case ElementType::Connector:
         return QStringLiteral("Connector");
+    case ElementType::Mask:
+        return QStringLiteral("Mask");
     default:
         return QStringLiteral("Неизвестно");
     }
