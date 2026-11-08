@@ -38,6 +38,33 @@ CanvasView::CanvasView(CanvasScene *scene, QWidget *parent)
     });
 }
 
+void CanvasView::setCanvasScene(CanvasScene *scene) {
+    if (scene_ == scene) return;
+    if (scene_) {
+        disconnect(scene_, nullptr, this, nullptr);
+    }
+    scene_ = scene;
+    setScene(scene_);
+    if (scene_) {
+        connect(scene_, &CanvasScene::activeToolChanged, this, [this](ElementType tool) {
+            if (tool == ElementType::None) {
+                setDragMode(QGraphicsView::RubberBandDrag);
+                viewport()->setCursor(Qt::ArrowCursor);
+            } else {
+                setDragMode(QGraphicsView::NoDrag);
+                viewport()->setCursor(Qt::CrossCursor);
+            }
+        });
+        if (scene_->activeTool() == ElementType::None) {
+            setDragMode(QGraphicsView::RubberBandDrag);
+            viewport()->setCursor(Qt::ArrowCursor);
+        } else {
+            setDragMode(QGraphicsView::NoDrag);
+            viewport()->setCursor(Qt::CrossCursor);
+        }
+    }
+}
+
 void CanvasView::applyZoom(double factor) {
     double currentScale = transform().m11();
     if ((factor < 1.0 && currentScale < 0.1) || (factor > 1.0 && currentScale > 20.0)) {

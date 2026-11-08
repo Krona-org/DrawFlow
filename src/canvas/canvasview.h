@@ -16,6 +16,7 @@ public:
     void zoomIn();
     void zoomOut();
     void resetZoom();
+    void setCanvasScene(CanvasScene *scene);
 
 signals:
     void zoomChanged(double factor);

@@ -69,6 +69,27 @@ void CanvasTabWidget::setZoomText(const QString &text) {
   }
 }
 
+void CanvasTabWidget::setPages(const QStringList &names, int activeIndex) {
+  for (QPushButton *btn : pageButtons_) {
+    pagesLayout_->removeWidget(btn);
+    delete btn;
+  }
+  pageButtons_.clear();
+
+  for (const QString &name : names) {
+    auto btn = new QPushButton(name, bottomBar_);
+    btn->setObjectName(QStringLiteral("pageTabBtn"));
+    btn->setFixedHeight(20);
+    connect(btn, &QPushButton::clicked, this,
+            &CanvasTabWidget::onPageButtonClicked);
+    pageButtons_.append(btn);
+    pagesLayout_->addWidget(btn);
+  }
+
+  currentPageIndex_ = qBound(0, activeIndex, pageButtons_.size() - 1);
+  updatePageButtonsStyle();
+}
+
 void CanvasTabWidget::onAddPageClicked() {
   int newIndex = pageButtons_.size() + 1;
   auto btn = new QPushButton(QStringLiteral("Страница %1").arg(newIndex),

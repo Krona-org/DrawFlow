@@ -6,9 +6,12 @@
 #include "src/elements/masterBlockElement/masterblockelement.h"
 
 #include <QDataStream>
+#include <QDebug>
 #include <QDomDocument>
 #include <QFile>
 #include <QHash>
+#include <QSaveFile>
+#include <QSet>
 #include <QTextStream>
 #include <algorithm>
 
@@ -88,10 +91,19 @@ static PortPosition portFromString(const QString &str) {
 bool ProjectStorage::saveToFile(const QString &filePath,
                                 const QString &projectName, CanvasScene *scene,
                                 QString *errorMessage) {
-  if (!scene) {
-    if (errorMessage)
-      *errorMessage = QStringLiteral("Холст не инициализирован.");
-    return false;
+  return saveToFile(filePath, projectName,
+                    QList<PageInfo>{{QStringLiteral("Страница 1"), scene}}, errorMessage);
+}
+
+bool ProjectStorage::saveToFile(const QString &filePath,
+                                const QString &projectName, const QList<PageInfo> &pages,
+                                QString *errorMessage) {
+  for (const PageInfo &page : pages) {
+    if (!page.scene) {
+      if (errorMessage)
+        *errorMessage = QStringLiteral("Холст не инициализирован.");
+      return false;
+    }
   }
 
   QDomDocument doc;
@@ -105,6 +117,15 @@ bool ProjectStorage::saveToFile(const QString &filePath,
   root.setAttribute(QStringLiteral("version"), QStringLiteral("3.0"));
   doc.appendChild(root);
 
+  // Многостраничный формат: содержимое каждой страницы находится в <page>.
+  QDomElement pagesNode = doc.createElement(QStringLiteral("pages"));
+  root.appendChild(pagesNode);
+  for (const PageInfo &page : pages) {
+    CanvasScene *scene = page.scene;
+    QDomElement pageNode = doc.createElement(QStringLiteral("page"));
+    pageNode.setAttribute(QStringLiteral("name"), page.name);
+    pagesNode.appendChild(pageNode);
+
   // 1. Секция настроек холста (<canvas>)
   QDomElement canvasNode = doc.createElement(QStringLiteral("canvas"));
   canvasNode.setAttribute(QStringLiteral("gridSize"),
@@ -115,7 +136,7 @@ bool ProjectStorage::saveToFile(const QString &filePath,
   canvasNode.setAttribute(QStringLiteral("showGrid"),
                           scene->isGridVisible() ? QStringLiteral("true")
                                                  : QStringLiteral("false"));
-  root.appendChild(canvasNode);
+  pageNode.appendChild(canvasNode);
 
   // Собираем элементы по категориям и сортируем по ID для удобного чтения и
   // ручного редактирования
@@ -146,7 +167,7 @@ bool ProjectStorage::saveToFile(const QString &filePath,
   QDomElement blocksNode = doc.createElement(QStringLiteral("blocks"));
   blocksNode.setAttribute(QStringLiteral("count"),
                           QString::number(blocks.size()));
-  root.appendChild(blocksNode);
+  pageNode.appendChild(blocksNode);
 
   for (MasterBlockElement *block : blocks) {
     QDomElement bNode = doc.createElement(QStringLiteral("block"));
@@ -205,7 +226,7 @@ bool ProjectStorage::saveToFile(const QString &filePath,
   QDomElement connectorsNode = doc.createElement(QStringLiteral("connectors"));
   connectorsNode.setAttribute(QStringLiteral("count"),
                               QString::number(connectors.size()));
-  root.appendChild(connectorsNode);
+  pageNode.appendChild(connectorsNode);
 
   for (ConnectorElement *conn : connectors) {
     QDomElement cNode = doc.createElement(QStringLiteral("connector"));
@@ -276,7 +297,7 @@ bool ProjectStorage::saveToFile(const QString &filePath,
   QDomElement masksNode = doc.createElement(QStringLiteral("masks"));
   masksNode.setAttribute(QStringLiteral("count"),
                          QString::number(masks.size()));
-  root.appendChild(masksNode);
+  pageNode.appendChild(masksNode);
 
   for (MaskElement *mask : masks) {
     QDomElement mNode = doc.createElement(QStringLiteral("mask"));
@@ -309,10 +330,11 @@ bool ProjectStorage::saveToFile(const QString &filePath,
 
     masksNode.appendChild(mNode);
   }
+  }
 
-  QFile file(filePath);
-  if (!file.open(QIODevice::WriteOnly | QIODevice::Text |
-                 QIODevice::Truncate)) {
+  QSaveFile file(filePath);
+  if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+    qWarning() << "Не удалось открыть файл проекта для записи:" << file.errorString();
     if (errorMessage)
       *errorMessage = file.errorString();
     return false;
@@ -320,19 +342,28 @@ bool ProjectStorage::saveToFile(const QString &filePath,
 
   QTextStream out(&file);
   doc.save(out, 4);
-  file.close();
+  out.flush();
+  if (out.status() != QTextStream::Ok || file.error() != QFileDevice::NoError) {
+    const QString message = file.error() != QFileDevice::NoError
+                                ? file.errorString()
+                                : QStringLiteral("Ошибка записи файла проекта.");
+    qWarning() << "Не удалось записать файл проекта:" << message;
+    if (errorMessage)
+      *errorMessage = message;
+    return false;
+  }
+  if (!file.commit()) {
+    qWarning() << "Не удалось сохранить файл проекта:" << file.errorString();
+    if (errorMessage)
+      *errorMessage = file.errorString();
+    return false;
+  }
 
   return true;
 }
 
-bool ProjectStorage::loadFromFile(const QString &filePath, QString &projectName,
-                                  CanvasScene *scene, QString *errorMessage) {
-  if (!scene) {
-    if (errorMessage)
-      *errorMessage = QStringLiteral("Холст не инициализирован.");
-    return false;
-  }
-
+static bool readProject(const QString &filePath, QDomDocument &doc,
+                        QString *errorMessage) {
   QFile file(filePath);
   if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
     if (errorMessage)
@@ -340,7 +371,6 @@ bool ProjectStorage::loadFromFile(const QString &filePath, QString &projectName,
     return false;
   }
 
-  QDomDocument doc;
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
   auto result = doc.setContent(&file);
   if (!result) {
@@ -379,29 +409,34 @@ bool ProjectStorage::loadFromFile(const QString &filePath, QString &projectName,
     return false;
   }
 
-  if (root.hasAttribute(QStringLiteral("name"))) {
-    projectName = root.attribute(QStringLiteral("name"));
-  }
+  return true;
+}
+
+static bool loadPage(const QDomElement &root, CanvasScene *scene,
+                     QString *errorMessage) {
+  CanvasScene tempScene;
+  // Отсутствующие настройки сохраняют значения текущего холста.
+  tempScene.setGridSize(scene->gridSize());
+  tempScene.setSnapToGrid(scene->isSnapToGrid());
+  tempScene.setGridVisible(scene->isGridVisible());
 
   // Настройки холста (поддержка как вложенного <canvas>, так и атрибутов root)
   QDomElement canvasNode = root.firstChildElement(QStringLiteral("canvas"));
   const QDomElement &gridAttrSource = canvasNode.isNull() ? root : canvasNode;
   if (gridAttrSource.hasAttribute(QStringLiteral("gridSize"))) {
-    scene->setGridSize(
+    tempScene.setGridSize(
         gridAttrSource.attribute(QStringLiteral("gridSize")).toDouble());
   }
   if (gridAttrSource.hasAttribute(QStringLiteral("snapToGrid"))) {
-    scene->setSnapToGrid(
+    tempScene.setSnapToGrid(
         gridAttrSource.attribute(QStringLiteral("snapToGrid")) ==
         QStringLiteral("true"));
   }
   if (gridAttrSource.hasAttribute(QStringLiteral("showGrid"))) {
-    scene->setGridVisible(
+    tempScene.setGridVisible(
         gridAttrSource.attribute(QStringLiteral("showGrid")) ==
         QStringLiteral("true"));
   }
-
-  scene->clearAll();
 
   QHash<QUuid, MasterBlockElement *> uidToBlock;
   QHash<quint32, MasterBlockElement *> idToBlock;
@@ -535,10 +570,9 @@ bool ProjectStorage::loadFromFile(const QString &filePath, QString &projectName,
         block->setAllLines(K1804Microcode::generateBlockLines(mf));
       }
 
-      scene->addItem(block);
+      tempScene.addItem(block);
       uidToBlock[uid] = block;
       idToBlock[id] = block;
-      emit scene->elementAdded(block);
     }
   }
 
@@ -641,8 +675,7 @@ bool ProjectStorage::loadFromFile(const QString &filePath, QString &projectName,
         }
       }
 
-      scene->addItem(conn);
-      emit scene->elementAdded(conn);
+      tempScene.addItem(conn);
     }
   }
 
@@ -701,8 +734,7 @@ bool ProjectStorage::loadFromFile(const QString &filePath, QString &projectName,
             styleNode.attribute(QStringLiteral("strokeStyle"))));
       }
 
-      scene->addItem(mask);
-      emit scene->elementAdded(mask);
+      tempScene.addItem(mask);
     }
   }
 
@@ -781,10 +813,9 @@ bool ProjectStorage::loadFromFile(const QString &filePath, QString &projectName,
       block->setBorderStyle(strokeStyle);
       block->setZValue(z);
 
-      scene->addItem(block);
+      tempScene.addItem(block);
       uidToBlock[uid] = block;
       idToBlock[id] = block;
-      emit scene->elementAdded(block);
     } else if (type == QStringLiteral("connector") ||
                type == QStringLiteral("line")) {
       auto *conn = new ConnectorElement(id, name, uid);
@@ -854,8 +885,7 @@ bool ProjectStorage::loadFromFile(const QString &filePath, QString &projectName,
         pendingConnections.append(pc);
       }
 
-      scene->addItem(conn);
-      emit scene->elementAdded(conn);
+      tempScene.addItem(conn);
     } else if (type == QStringLiteral("mask")) {
       auto *mask = new MaskElement(id, name, uid);
       mask->setPos(x, y);
@@ -875,8 +905,7 @@ bool ProjectStorage::loadFromFile(const QString &filePath, QString &projectName,
       mask->setBorderStyle(strokeStyle);
       mask->setZValue(z);
 
-      scene->addItem(mask);
-      emit scene->elementAdded(mask);
+      tempScene.addItem(mask);
     }
   }
 
@@ -897,6 +926,14 @@ bool ProjectStorage::loadFromFile(const QString &filePath, QString &projectName,
       toBlock = uidToBlock[pc.endUid];
     }
 
+    if (((pc.startId > 0 || !pc.startUid.isNull()) && !fromBlock) ||
+        ((pc.endId > 0 || !pc.endUid.isNull()) && !toBlock)) {
+      if (errorMessage)
+        *errorMessage = QStringLiteral("Не найден блок, связанный с коннектором %1.")
+                            .arg(pc.conn->id());
+      return false;
+    }
+
     if (fromBlock) {
       pc.conn->setStartConnection(fromBlock, pc.startPort);
     }
@@ -905,12 +942,80 @@ bool ProjectStorage::loadFromFile(const QString &filePath, QString &projectName,
     }
   }
 
-  // Обновляем маршрутизацию коннекторов
+  // Сначала завершаем маршрутизацию во временной сцене.
+  for (auto *block : uidToBlock) {
+    tempScene.updateConnectedLines(block);
+  }
+
+  scene->setGridSize(tempScene.gridSize());
+  scene->setSnapToGrid(tempScene.isSnapToGrid());
+  scene->setGridVisible(tempScene.isGridVisible());
+  scene->clearAll();
+  const auto elements = tempScene.allElements();
+  for (ShapeElement *element : elements) {
+    tempScene.removeItem(element);
+    scene->addItem(element);
+    emit scene->elementAdded(element);
+  }
   for (auto *block : uidToBlock) {
     scene->updateConnectedLines(block);
   }
   scene->update();
+  return true;
+}
 
+bool ProjectStorage::loadFromFile(const QString &filePath, QString &projectName,
+                                  CanvasScene *scene, QString *errorMessage) {
+  if (!scene) {
+    if (errorMessage)
+      *errorMessage = QStringLiteral("Холст не инициализирован.");
+    return false;
+  }
+  QDomDocument doc;
+  if (!readProject(filePath, doc, errorMessage))
+    return false;
+  const QDomElement root = doc.documentElement();
+  const QDomElement pagesNode = root.firstChildElement(QStringLiteral("pages"));
+  QDomElement pageNode = pagesNode.isNull() ? root : pagesNode.firstChildElement(QStringLiteral("page"));
+  if (pageNode.isNull()) {
+    if (errorMessage)
+      *errorMessage = QStringLiteral("Проект не содержит страниц.");
+    return false;
+  }
+  if (!loadPage(pageNode, scene, errorMessage))
+    return false;
+  if (root.hasAttribute(QStringLiteral("name")))
+    projectName = root.attribute(QStringLiteral("name"));
+  return true;
+}
+
+bool ProjectStorage::loadFromFile(const QString &filePath, QString &projectName,
+                                  QList<PageInfo> &pages, QString *errorMessage,
+                                  QObject *sceneParent) {
+  QDomDocument doc;
+  if (!readProject(filePath, doc, errorMessage))
+    return false;
+  const QDomElement root = doc.documentElement();
+  const QDomElement pagesNode = root.firstChildElement(QStringLiteral("pages"));
+  QList<PageInfo> loadedPages;
+  QDomElement pageNode = pagesNode.isNull() ? root : pagesNode.firstChildElement(QStringLiteral("page"));
+  while (!pageNode.isNull()) {
+    auto *scene = new CanvasScene();
+    if (!loadPage(pageNode, scene, errorMessage)) {
+      delete scene;
+      for (const PageInfo &page : loadedPages)
+        delete page.scene;
+      return false;
+    }
+    loadedPages.append({pagesNode.isNull() ? QStringLiteral("Страница 1")
+                                          : pageNode.attribute(QStringLiteral("name")), scene});
+    pageNode = pagesNode.isNull() ? QDomElement() : pageNode.nextSiblingElement(QStringLiteral("page"));
+  }
+  for (const PageInfo &page : loadedPages)
+    page.scene->setParent(sceneParent);
+  pages = loadedPages;
+  if (root.hasAttribute(QStringLiteral("name")))
+    projectName = root.attribute(QStringLiteral("name"));
   return true;
 }
 
@@ -925,11 +1030,21 @@ bool ProjectStorage::exportK1804Binary(const QString &filePath,
 
   // Собираем все блоки K1804 MasterBlock
   QList<MasterBlockElement *> blocks;
+  QSet<quint16> addresses;
   quint16 maxAddress = 0;
 
   for (ShapeElement *element : scene->allElements()) {
     if (auto *block = dynamic_cast<MasterBlockElement *>(element)) {
       if (block->address() > 0) {
+        if (addresses.contains(block->address())) {
+          const QString message = QStringLiteral("Обнаружен повторяющийся адрес блока: %1.")
+                                      .arg(block->address());
+          qWarning() << message;
+          if (errorMessage)
+            *errorMessage = message;
+          return false;
+        }
+        addresses.insert(block->address());
         blocks.append(block);
         if (block->address() > maxAddress) {
           maxAddress = block->address();

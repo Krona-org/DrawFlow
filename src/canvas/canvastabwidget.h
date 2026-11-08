@@ -20,6 +20,7 @@ public:
 
     void setZoomText(const QString &text);
     int pageCount() const { return pageButtons_.size(); }
+    void setPages(const QStringList &names, int activeIndex = 0);
 
 signals:
     void pageChanged(int index);

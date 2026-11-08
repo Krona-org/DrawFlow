@@ -4,6 +4,7 @@
 #include "src/elements/connectorElement/connectorelement.h"
 #include "src/elements/masterBlockElement/masterblockelement.h"
 #include "src/frames/bParamsDialog/data/helpdialog.h"
+#include "src/frames/exportDialog/exportbinarydialog.h"
 #include "src/themes/thememanager.h"
 #include "ui_mainwindow.h"
 
@@ -151,7 +152,7 @@ void MainWindow::onPageChanged(int index) {
   activePageIndex_ = index;
   scene_ = pages_[index].scene;
 
-  view_->setScene(scene_);
+  view_->setCanvasScene(scene_);
   connectScene(scene_);
 
   if (elementsDock_)
@@ -467,7 +468,24 @@ void MainWindow::onNewProject() {
   if (ok && !name.trimmed().isEmpty()) {
     projectName_ = name.trimmed();
     currentFilePath_.clear();
+
+    // Удаляем все дополнительные страницы кроме первой
+    for (int i = 1; i < pages_.size(); ++i) {
+      delete pages_[i].scene;
+    }
+    pages_.resize(1);
+    pages_[0].name = QStringLiteral("Страница 1");
+    activePageIndex_ = 0;
+    scene_ = pages_[0].scene;
     scene_->clearAll();
+
+    tabWidget_->setPages({pages_[0].name}, 0);
+    view_->setCanvasScene(scene_);
+    connectScene(scene_);
+    if (elementsDock_) elementsDock_->setScene(scene_);
+    if (libraryDock_) libraryDock_->setScene(scene_);
+    if (propertyDock_) propertyDock_->setScene(scene_);
+
     updateWindowTitle();
   }
 }
@@ -480,9 +498,37 @@ void MainWindow::onOpenProject() {
     return;
   }
 
+  QList<PageInfo> loadedPages;
+  QString loadedProjectName;
   QString errorMsg;
-  if (ProjectStorage::loadFromFile(fileName, projectName_, scene_, &errorMsg)) {
+  if (ProjectStorage::loadFromFile(fileName, loadedProjectName, loadedPages, &errorMsg, this)) {
+    // Освобождаем старые сцены
+    for (const auto &p : pages_) {
+      delete p.scene;
+    }
+    pages_.clear();
+
+    QStringList names;
+    for (const auto &pi : loadedPages) {
+      PageData pd;
+      pd.name = pi.name;
+      pd.scene = pi.scene;
+      pages_.append(pd);
+      names.append(pi.name);
+    }
+    projectName_ = loadedProjectName;
     currentFilePath_ = fileName;
+    activePageIndex_ = 0;
+    scene_ = pages_.isEmpty() ? nullptr : pages_[0].scene;
+
+    tabWidget_->setPages(names, 0);
+    if (scene_) {
+      view_->setCanvasScene(scene_);
+      connectScene(scene_);
+      if (elementsDock_) elementsDock_->setScene(scene_);
+      if (libraryDock_) libraryDock_->setScene(scene_);
+      if (propertyDock_) propertyDock_->setScene(scene_);
+    }
     updateWindowTitle();
   } else {
     QMessageBox::critical(
@@ -497,8 +543,13 @@ void MainWindow::onSaveProject() {
     return;
   }
 
+  QList<PageInfo> toSave;
+  for (const auto &p : pages_) {
+    toSave.append({p.name, p.scene});
+  }
+
   QString errorMsg;
-  if (ProjectStorage::saveToFile(currentFilePath_, projectName_, scene_,
+  if (ProjectStorage::saveToFile(currentFilePath_, projectName_, toSave,
                                  &errorMsg)) {
     updateWindowTitle();
   } else {
@@ -519,8 +570,13 @@ void MainWindow::onSaveProjectAs() {
     return;
   }
 
+  QList<PageInfo> toSave;
+  for (const auto &p : pages_) {
+    toSave.append({p.name, p.scene});
+  }
+
   QString errorMsg;
-  if (ProjectStorage::saveToFile(fileName, projectName_, scene_, &errorMsg)) {
+  if (ProjectStorage::saveToFile(fileName, projectName_, toSave, &errorMsg)) {
     currentFilePath_ = fileName;
     updateWindowTitle();
   } else {
@@ -531,22 +587,35 @@ void MainWindow::onSaveProjectAs() {
 }
 
 void MainWindow::onExportBinary() {
-  QString defaultName = projectName_ + QStringLiteral(".bin");
-  QString fileName = QFileDialog::getSaveFileName(
-      this, QStringLiteral("Экспорт микрокоманд К1804"), defaultName,
-      QStringLiteral(
-          "Бинарные файлы микрокоманд (*.bin *.rom);;Все файлы (*.*)"));
-  if (fileName.isEmpty())
+  QList<PageInfo> exportPages;
+  for (const auto &p : pages_) {
+    exportPages.append({p.name, p.scene});
+  }
+
+  QString defaultDir = currentFilePath_.isEmpty()
+                           ? QString()
+                           : QFileInfo(currentFilePath_).absolutePath();
+  ExportBinaryDialog dlg(exportPages, activePageIndex_, defaultDir, this);
+  if (dlg.exec() != QDialog::Accepted) {
     return;
+  }
+
+  int targetIndex = dlg.selectedPageIndex();
+  if (targetIndex < 0 || targetIndex >= pages_.size()) {
+    return;
+  }
+
+  CanvasScene *targetScene = pages_[targetIndex].scene;
+  QString fileName = dlg.selectedFilePath();
 
   int count = 0;
   QString errorMsg;
-  if (ProjectStorage::exportK1804Binary(fileName, scene_, &count, &errorMsg)) {
+  if (ProjectStorage::exportK1804Binary(fileName, targetScene, &count, &errorMsg)) {
     QMessageBox::information(
         this, QStringLiteral("Экспорт завершен"),
-        QStringLiteral("Файл данных сформирован. Обработано %1 блоков на "
-                       "текущей странице.")
-            .arg(count));
+        QStringLiteral("Файл данных сформирован. Обработано %1 блоков на странице \"%2\".")
+            .arg(count)
+            .arg(pages_[targetIndex].name));
   } else {
     QMessageBox::critical(
         this, QStringLiteral("Ошибка экспорта"),
