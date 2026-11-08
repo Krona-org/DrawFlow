@@ -98,8 +98,8 @@ class ResizeConnectorCommand : public QUndoCommand {
 public:
     ResizeConnectorCommand(CanvasScene *scene,
                            ConnectorElement *connector,
-                           const QPointF &oldP1, const QPointF &oldP2, const QVector<QPointF> &oldPoints,
-                           const QPointF &newP1, const QPointF &newP2, const QVector<QPointF> &newPoints,
+                           const ConnectorElement::RouteState &oldState,
+                           const ConnectorElement::RouteState &newState,
                            QUndoCommand *parent = nullptr);
 
     void undo() override;
@@ -108,12 +108,8 @@ public:
 private:
     CanvasScene *scene_;
     ConnectorElement *connectorItem_;
-    QPointF oldP1_;
-    QPointF oldP2_;
-    QVector<QPointF> oldPoints_;
-    QPointF newP1_;
-    QPointF newP2_;
-    QVector<QPointF> newPoints_;
+    ConnectorElement::RouteState oldState_;
+    ConnectorElement::RouteState newState_;
 };
 
 // 6. Команда изменения параметров микрокоманды блока K1804 MasterBlock

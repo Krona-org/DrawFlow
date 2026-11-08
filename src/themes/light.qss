@@ -189,7 +189,7 @@ QSpinBox,
 QDoubleSpinBox,
 QComboBox,
 QPlainTextEdit {
-  background-color: #FFFFFF;
+  background-color: #F8FAFC;
   border: 1px solid #CBD5E1;
   border-radius: 4px;
   padding: 3px 6px;
@@ -233,7 +233,7 @@ QComboBox::down-arrow {
 }
 
 QComboBox QAbstractItemView {
-  background-color: #FFFFFF;
+  background-color: #F8FAFC;
   color: #1E293B;
   border: 1px solid #94A3B8;
   border-radius: 4px;
@@ -332,7 +332,7 @@ QGroupBox {
 }
 
 QGroupBox#sectionGroupBox {
-  background-color: #FFFFFF;
+  background-color: #F8FAFC;
   border: 1px solid #CBD5E1;
   border-radius: 6px;
   margin-top: 10px;
@@ -347,7 +347,7 @@ QGroupBox#sectionGroupBox::title {
   subcontrol-position: top left;
   left: 10px;
   padding: 0 6px;
-  background-color: #FFFFFF;
+  background-color: #F8FAFC;
   color: #1E3A8A;
 }
 
@@ -559,7 +559,7 @@ QLabel#mFieldLabel {
 }
 
 QFrame#cardFrame {
-  background-color: #FFFFFF;
+  background-color: #F8FAFC;
   border: 1px solid #CBD5E1;
   border-radius: 6px;
 }
@@ -642,12 +642,12 @@ QToolButton#bitBtn:checked {
 
 /* ==================== 14. Help Dialog & Tabs ==================== */
 QDialog#helpDialog {
-  background-color: #F1F5F9;
+  background-color: #E2E8F0;
   color: #1E293B;
 }
 
 QFrame#helpBannerCard {
-  background-color: #FFFFFF;
+  background-color: #E8EBEF;
   border: 1px solid #CBD5E1;
   border-radius: 8px;
 }
@@ -693,7 +693,7 @@ QTabWidget#helpTabs QTabBar::tab:hover {
 }
 
 QTabWidget#helpTabs QTabBar::tab:selected {
-  background-color: #FFFFFF;
+  background-color: #E8EBEF;
   color: #1D4ED8;
   border-color: #CBD5E1;
   border-top: 2px solid #2563EB;
@@ -701,17 +701,17 @@ QTabWidget#helpTabs QTabBar::tab:selected {
 }
 
 QWidget#helpPageContainer {
-  background-color: #F1F5F9;
+  background-color: #E2E8F0;
 }
 
 QFrame#helpCard {
-  background-color: #FFFFFF;
+  background-color: #E8EBEF;
   border: 1px solid #CBD5E1;
   border-radius: 8px;
 }
 
 QFrame#helpInnerTable {
-  background-color: #F8FAFC;
+  background-color: #E2E8F0;
   border: 1px solid #E2E8F0;
   border-radius: 6px;
 }

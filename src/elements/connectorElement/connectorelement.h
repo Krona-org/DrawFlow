@@ -20,6 +20,25 @@ public:
 
   ElementType elementType() const override { return ElementType::Connector; }
 
+  struct RouteState {
+    QVector<QPointF> points;
+    MasterBlockElement *startBlock = nullptr;
+    PortPosition startPort = PortPosition::None;
+    MasterBlockElement *endBlock = nullptr;
+    PortPosition endPort = PortPosition::None;
+    bool hasManualOffset = false;
+    qreal manualMidOffset = 0.0;
+    bool operator==(const RouteState &other) const {
+      return points == other.points && startBlock == other.startBlock &&
+             startPort == other.startPort && endBlock == other.endBlock &&
+             endPort == other.endPort && hasManualOffset == other.hasManualOffset &&
+             manualMidOffset == other.manualMidOffset;
+    }
+    bool operator!=(const RouteState &other) const { return !(*this == other); }
+  };
+  RouteState routeState() const;
+  void setRouteState(const RouteState &state);
+
   QPointF p1() const { return p1_; }
   void setP1(const QPointF &p);
 

@@ -225,34 +225,26 @@ void ResizeMasterBlockCommand::redo() {
 // --- ResizeConnectorCommand ---
 ResizeConnectorCommand::ResizeConnectorCommand(CanvasScene *scene,
                                                ConnectorElement *connector,
-                                               const QPointF &oldP1, const QPointF &oldP2, const QVector<QPointF> &oldPoints,
-                                               const QPointF &newP1, const QPointF &newP2, const QVector<QPointF> &newPoints,
+                                               const ConnectorElement::RouteState &oldState,
+                                               const ConnectorElement::RouteState &newState,
                                                QUndoCommand *parent)
     : QUndoCommand(parent)
     , scene_(scene)
     , connectorItem_(connector)
-    , oldP1_(oldP1)
-    , oldP2_(oldP2)
-    , oldPoints_(oldPoints)
-    , newP1_(newP1)
-    , newP2_(newP2)
-    , newPoints_(newPoints)
+    , oldState_(oldState)
+    , newState_(newState)
 {
     setText(QStringLiteral("Изменение коннектора: %1").arg(connector ? connector->name() : QString()));
 }
 
 void ResizeConnectorCommand::undo() {
     if (!scene_ || !connectorItem_ || connectorItem_->scene() != scene_) return;
-    connectorItem_->setP1(oldP1_);
-    connectorItem_->setP2(oldP2_);
-    connectorItem_->setPoints(oldPoints_);
+    connectorItem_->setRouteState(oldState_);
 }
 
 void ResizeConnectorCommand::redo() {
     if (!scene_ || !connectorItem_ || connectorItem_->scene() != scene_) return;
-    connectorItem_->setP1(newP1_);
-    connectorItem_->setP2(newP2_);
-    connectorItem_->setPoints(newPoints_);
+    connectorItem_->setRouteState(newState_);
 }
 
 // --- ModifyMasterBlockParamsCommand ---

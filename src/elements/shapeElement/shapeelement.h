@@ -41,6 +41,7 @@ public:
     void setName(const QString &name);
 
     QUuid uid() const { return uid_; }
+    qreal persistentZValue() const { return isSelected() ? baseZValue_ : zValue(); }
 
     virtual ElementType elementType() const = 0;
 
@@ -96,7 +97,7 @@ protected:
     qreal borderWidth_ = 1.5;
     Qt::PenStyle borderStyle_ = Qt::SolidLine;
 
-    QColor fillColor_{Qt::white};
+    QColor fillColor_{QColor(242, 244, 247)};
     Qt::BrushStyle fillStyle_ = Qt::SolidPattern;
 
     ResizeHandle activeHandle_ = ResizeHandle::None;

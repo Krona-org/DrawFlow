@@ -1,13 +1,12 @@
 # Clangd Config for Qt6 MinGW 64-bit
 CompileFlags:
-  CompilationDatabase: "build-release"
+  CompilationDatabase: "build"
   Add:
     - --target=x86_64-w64-mingw32
     - -std=c++17
     - -DMINGW_HAS_SECURE_API=1
     - -DQT_CORE_LIB
     - -DQT_GUI_LIB
-    - -DQT_NO_DEBUG
     - -DQT_SVG_LIB
     - -DQT_WIDGETS_LIB
     - -DQT_XML_LIB
@@ -17,19 +16,17 @@ CompileFlags:
     - -D_ENABLE_EXTENDED_ALIGNED_STORAGE
     - -D_UNICODE
     - -D_WIN64
-    - -DNDEBUG
-    - -Ic:/Users/marus/OneDrive/Desktop/editor_qt6
-    - -Ic:/Users/marus/OneDrive/Desktop/editor_qt6/src
-    - -Ic:/Users/marus/OneDrive/Desktop/editor_qt6/src/elements
-    - -Ic:/Users/marus/OneDrive/Desktop/editor_qt6/src/elements/common
-    - -Ic:/Users/marus/OneDrive/Desktop/editor_qt6/src/elements/shapeElement
-    - -Ic:/Users/marus/OneDrive/Desktop/editor_qt6/src/elements/connectorElement
-    - -Ic:/Users/marus/OneDrive/Desktop/editor_qt6/src/elements/masterBlockElement
-    - -Ic:/Users/marus/OneDrive/Desktop/editor_qt6/src/elements/maskElement
-    - -Ic:/Users/marus/OneDrive/Desktop/editor_qt6/src/frames
-    - -Ic:/Users/marus/OneDrive/Desktop/editor_qt6/src/widgets
-    - -IC:/Users/marus/OneDrive/Desktop/editor_qt6/build-release/drawflow_autogen/include
-    - -IC:/Users/marus/OneDrive/Desktop/editor_qt6
+    - -ID:/MyProjects/drawFlow
+    - -ID:/MyProjects/drawFlow/src
+    - -ID:/MyProjects/drawFlow/src/elements
+    - -ID:/MyProjects/drawFlow/src/elements/common
+    - -ID:/MyProjects/drawFlow/src/elements/shapeElement
+    - -ID:/MyProjects/drawFlow/src/elements/connectorElement
+    - -ID:/MyProjects/drawFlow/src/elements/masterBlockElement
+    - -ID:/MyProjects/drawFlow/src/elements/maskElement
+    - -ID:/MyProjects/drawFlow/src/frames
+    - -ID:/MyProjects/drawFlow/src/widgets
+    - -ID:/MyProjects/drawFlow/build/drawflow_autogen/include
     - -isystem
     - C:/Qt/6.10.2/mingw_64/include/QtCore
     - -isystem

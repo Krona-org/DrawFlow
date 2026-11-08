@@ -42,11 +42,12 @@ protected:
 
     // Фон мини-холста с тонкой сеткой
     const QRectF canvasRect(1, 1, width() - 2, height() - 2);
-    p.setPen(QPen(QColor(203, 213, 225), 1));
-    p.setBrush(QColor(248, 250, 252));
+    p.setPen(QPen(QColor(190, 197, 205), 1));
+    p.setBrush(QColor(232, 235, 239));
     p.drawRoundedRect(canvasRect, 8, 8);
 
-    p.setPen(QPen(QColor(226, 232, 240), 1));
+    // Цвет сетки согласован с цветом сетки холста (QColor(212, 217, 223))
+    p.setPen(QPen(QColor(212, 217, 223), 1));
     for (int x = 16; x < width() - 4; x += 16) {
       p.drawLine(x, 2, x, height() - 3);
     }
@@ -57,7 +58,7 @@ protected:
     // Основной прямоугольник MasterBlock
     const QRectF blockRect(26, 26, width() - 52, height() - 40);
     p.setPen(QPen(QColor(15, 23, 42), 1.8));
-    p.setBrush(Qt::white);
+    p.setBrush(QColor(242, 244, 247));
     p.drawRect(blockRect);
 
     // Верхние плашки: слева — шаг/метка, справа — восьмеричный адрес МК
@@ -66,7 +67,7 @@ protected:
                             20);
 
     p.setPen(QPen(QColor(15, 23, 42), 1.6));
-    p.setBrush(Qt::white);
+    p.setBrush(QColor(242, 244, 247));
     p.drawRect(leftBadge);
     p.drawRect(rightBadge);
 

@@ -48,7 +48,7 @@ void CanvasScene::copySelection() {
       data.borderStyle = block->borderStyle();
       data.fillColor = block->fillColor();
       data.fillStyle = block->fillStyle();
-      data.zValue = block->zValue();
+      data.zValue = block->persistentZValue();
       s_clipboard_.blocks.append(data);
     } else if (auto conn = dynamic_cast<ConnectorElement *>(item)) {
       ConnectorClipboardData data;
@@ -63,12 +63,14 @@ void CanvasScene::copySelection() {
       data.endBlock = conn->endBlock();
       data.endPort = conn->endPort();
       data.isOrthogonal = conn->isOrthogonal();
+      data.hasManualOffset = conn->hasManualOffset();
+      data.manualMidOffset = conn->manualMidOffset();
       data.beginMarker = conn->beginMarker();
       data.endMarker = conn->endMarker();
       data.borderColor = conn->borderColor();
       data.borderWidth = conn->borderWidth();
       data.borderStyle = conn->borderStyle();
-      data.zValue = conn->zValue();
+      data.zValue = conn->persistentZValue();
       s_clipboard_.connectors.append(data);
     } else if (auto mask = dynamic_cast<MaskElement *>(item)) {
       MaskClipboardData data;
@@ -81,7 +83,7 @@ void CanvasScene::copySelection() {
       data.borderStyle = mask->borderStyle();
       data.fillColor = mask->fillColor();
       data.fillStyle = mask->fillStyle();
-      data.zValue = mask->zValue();
+      data.zValue = mask->persistentZValue();
       s_clipboard_.masks.append(data);
     }
   }
@@ -114,7 +116,7 @@ void CanvasScene::pasteClipboard() {
     quint16 blockNum = nextAvailableMasterBlockNumber();
     QString name = QStringLiteral("MasterBlock %1").arg(blockNum);
     auto newBlock =
-        new MasterBlockElement(nextElementId_++, name, QUuid::createUuid());
+        new MasterBlockElement(nextElementId(), name, QUuid::createUuid());
     newBlock->setPos(snapPoint(data.pos + offset));
     newBlock->setRect(data.rect);
     newBlock->setAddress(blockNum);
@@ -145,16 +147,18 @@ void CanvasScene::pasteClipboard() {
     quint32 connNum = nextAvailableConnectorNumber();
     QString name = QStringLiteral("Connector %1").arg(connNum);
     auto newConn =
-        new ConnectorElement(nextElementId_++, name, QUuid::createUuid());
-    newConn->setPos(snapPoint(data.pos + offset));
-    newConn->setP1(data.p1);
-    newConn->setP2(data.p2);
-
-    QVector<QPointF> newPts;
-    for (const QPointF &pt : data.points) {
-      newPts.append(pt + offset);
-    }
-    newConn->setPoints(newPts);
+        new ConnectorElement(nextElementId(), name, QUuid::createUuid());
+    // Маршрутизатор работает в координатах сцены; положение коннектора
+    // оставляем нулевым, перенося смещение в его локальные точки ровно раз.
+    const QPointF translatedPos = snapPoint(data.pos + offset);
+    newConn->setPos(0, 0);
+    QVector<QPointF> newPoints;
+    for (const QPointF &point : data.points)
+      newPoints.append(point + translatedPos);
+    newConn->setPoints(newPoints);
+    newConn->setOrthogonal(data.isOrthogonal);
+    if (data.hasManualOffset)
+      newConn->setManualMidOffset(data.manualMidOffset);
 
     newConn->setBeginMarker(data.beginMarker);
     newConn->setEndMarker(data.endMarker);
@@ -188,7 +192,7 @@ void CanvasScene::pasteClipboard() {
   for (const auto &data : s_clipboard_.masks) {
     quint32 maskNum = nextAvailableMaskNumber();
     QString name = QStringLiteral("Mask %1").arg(maskNum);
-    auto newMask = new MaskElement(nextElementId_++, name, QUuid::createUuid());
+    auto newMask = new MaskElement(nextElementId(), name, QUuid::createUuid());
     newMask->setPos(snapPoint(data.pos + offset));
     newMask->setRect(data.rect);
     newMask->setMaskText(data.maskText);
@@ -247,6 +251,12 @@ CanvasScene::CanvasScene(QObject *parent) : QGraphicsScene(parent) {
     setConnectingMode(hasConn || activeTool_ == ElementType::Connector ||
                       isConnectingFromPort_);
   });
+}
+
+CanvasScene::~CanvasScene() {
+  // QGraphicsScene уничтожает выбранные элементы уже после деструктора
+  // CanvasScene; его signal selectionChanged больше не должен вызывать нас.
+  disconnect(this, &QGraphicsScene::selectionChanged, this, nullptr);
 }
 
 void CanvasScene::setGridSize(qreal size) {
@@ -669,6 +679,15 @@ void CanvasScene::updateConnectedLinesForBlocks(
   }
 }
 
+quint32 CanvasScene::nextElementId() {
+  QSet<quint32> used;
+  for (ShapeElement *element : allElements())
+    used.insert(element->id());
+  while (nextElementId_ == 0 || used.contains(nextElementId_))
+    ++nextElementId_;
+  return nextElementId_++;
+}
+
 quint16 CanvasScene::nextAvailableMasterBlockNumber() const {
   QSet<quint16> used;
   for (QGraphicsItem *item : items()) {
@@ -744,7 +763,7 @@ ShapeElement *CanvasScene::addElementAt(ElementType type,
     quint16 blockNum = nextAvailableMasterBlockNumber();
     QString name = QStringLiteral("MasterBlock %1").arg(blockNum);
     auto blockItem =
-        new MasterBlockElement(nextElementId_++, name, QUuid::createUuid());
+        new MasterBlockElement(nextElementId(), name, QUuid::createUuid());
     blockItem->setPos(pos);
     blockItem->setAddress(blockNum);
     blockItem->setStepName(QString::number(blockNum));
@@ -761,7 +780,7 @@ ShapeElement *CanvasScene::addElementAt(ElementType type,
     quint32 connNum = nextAvailableConnectorNumber();
     QString name = QStringLiteral("Connector %1").arg(connNum);
     auto connItem =
-        new ConnectorElement(nextElementId_++, name, QUuid::createUuid());
+        new ConnectorElement(nextElementId(), name, QUuid::createUuid());
     connItem->setPos(0, 0);
 
     auto portMatch = findPortAt(pos, nullptr, 22.0);
@@ -785,7 +804,7 @@ ShapeElement *CanvasScene::addElementAt(ElementType type,
     quint32 maskNum = nextAvailableMaskNumber();
     QString name = QStringLiteral("Mask %1").arg(maskNum);
     auto maskItem =
-        new MaskElement(nextElementId_++, name, QUuid::createUuid());
+        new MaskElement(nextElementId(), name, QUuid::createUuid());
     maskItem->setPos(pos);
     maskItem->setRect(QRectF(0, 0, 100, 22));
     if (undoStack_) {
@@ -831,10 +850,11 @@ void CanvasScene::clearAll() {
   masterBlockCount_ = 0;
   connectorCount_ = 0;
   maskCount_ = 0;
+  emit sceneCleared();
 }
 
 void CanvasScene::drawBackground(QPainter *painter, const QRectF &rect) {
-  painter->fillRect(rect, Qt::white);
+  painter->fillRect(rect, QColor(232, 235, 239));
 
   if (!showGrid_ || gridSize_ <= 0.0) {
     return;
@@ -843,10 +863,10 @@ void CanvasScene::drawBackground(QPainter *painter, const QRectF &rect) {
   painter->save();
   painter->setRenderHint(QPainter::Antialiasing, false);
 
-  QPen minorPen(QColor(238, 240, 244), 1.0);
+  QPen minorPen(QColor(212, 217, 223), 1.0);
   minorPen.setCosmetic(true);
 
-  QPen majorPen(QColor(218, 222, 228), 1.0);
+  QPen majorPen(QColor(190, 197, 205), 1.0);
   majorPen.setCosmetic(true);
 
   const QTransform &transform = painter->worldTransform();
@@ -934,9 +954,7 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
             preResizePos_ = block->pos();
             preResizeRect_ = block->rect();
           } else if (auto conn = dynamic_cast<ConnectorElement *>(shape)) {
-            preResizeP1_ = conn->p1();
-            preResizeP2_ = conn->p2();
-            preResizePoints_ = conn->points();
+            preResizeConnectorState_ = conn->routeState();
           }
           preMovePositions_.clear();
 
@@ -963,7 +981,7 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
       quint32 connNum = nextAvailableConnectorNumber();
       QString name = QStringLiteral("Connector %1").arg(connNum);
       currentCreatingConnector_ =
-          new ConnectorElement(nextElementId_++, name, QUuid::createUuid());
+          new ConnectorElement(nextElementId(), name, QUuid::createUuid());
       currentCreatingConnector_->setPos(0, 0);
       currentCreatingConnector_->setStartConnection(connectStartBlock_,
                                                     connectStartPort_);
@@ -988,7 +1006,7 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
         quint16 blockNum = nextAvailableMasterBlockNumber();
         QString name = QStringLiteral("MasterBlock %1").arg(blockNum);
         auto blockItem =
-            new MasterBlockElement(nextElementId_++, name, QUuid::createUuid());
+            new MasterBlockElement(nextElementId(), name, QUuid::createUuid());
         blockItem->setPos(createStartPos_);
         blockItem->setAddress(blockNum);
         blockItem->setStepName(QString::number(blockNum));
@@ -999,7 +1017,7 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
         quint32 connNum = nextAvailableConnectorNumber();
         QString name = QStringLiteral("Connector %1").arg(connNum);
         auto connItem =
-            new ConnectorElement(nextElementId_++, name, QUuid::createUuid());
+            new ConnectorElement(nextElementId(), name, QUuid::createUuid());
         connItem->setPos(0, 0);
 
         auto portMatch = findPortAt(createStartPos_, nullptr, 22.0);
@@ -1017,7 +1035,7 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
         quint32 maskNum = nextAvailableMaskNumber();
         QString name = QStringLiteral("Mask %1").arg(maskNum);
         auto maskItem =
-            new MaskElement(nextElementId_++, name, QUuid::createUuid());
+            new MaskElement(nextElementId(), name, QUuid::createUuid());
         maskItem->setPos(createStartPos_);
         maskItem->setRect(QRectF(0, 0, 100, 22));
         addItem(maskItem);
@@ -1048,9 +1066,7 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
         preResizeRect_ = block->rect();
       } else if (auto conn = dynamic_cast<ConnectorElement *>(sel)) {
         preResizeShape_ = conn;
-        preResizeP1_ = conn->p1();
-        preResizeP2_ = conn->p2();
-        preResizePoints_ = conn->points();
+        preResizeConnectorState_ = conn->routeState();
       }
     }
   }
@@ -1361,12 +1377,10 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
         return;
       }
     } else if (auto conn = dynamic_cast<ConnectorElement *>(preResizeShape_)) {
-      if (conn->p1() != preResizeP1_ || conn->p2() != preResizeP2_ ||
-          conn->points() != preResizePoints_) {
+      if (conn->routeState() != preResizeConnectorState_) {
         if (undoStack_) {
           undoStack_->push(new ResizeConnectorCommand(
-              this, conn, preResizeP1_, preResizeP2_, preResizePoints_,
-              conn->p1(), conn->p2(), conn->points()));
+              this, conn, preResizeConnectorState_, conn->routeState()));
         }
         preResizeShape_ = nullptr;
         preMovePositions_.clear();

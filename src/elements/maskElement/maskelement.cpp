@@ -14,7 +14,6 @@ MaskElement::MaskElement(quint32 id, const QString &name, const QUuid &uid,
     borderWidth_ = 1.0;
     // В Visio фигура Mask по умолчанию не имеет видимой рамки (LinePattern = 0)
     borderStyle_ = Qt::NoPen;
-    fillColor_ = Qt::white;
     fillStyle_ = Qt::SolidPattern;
     setCacheMode(QGraphicsItem::DeviceCoordinateCache);
 }

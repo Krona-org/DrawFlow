@@ -18,6 +18,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QPainter>
 #include <QPixmap>
 #include <QPushButton>
@@ -527,6 +528,30 @@ void ElementPropertyFrame::updateProperties() {
   isUpdating_ = false;
 }
 
+quint16 ElementPropertyFrame::validatedAddress(MasterBlockElement *block) {
+  bool ok = false;
+  const quint16 address = K1804Microcode::fromOctal(editAddressOct_->text(), &ok);
+  QString error;
+  if (!ok || editAddressOct_->text().trimmed().isEmpty() || address < 1 || address > 64) {
+    error = QStringLiteral("Адрес должен быть в диапазоне 001..100 oct.");
+  } else if (scene_ && address != block->address()) {
+    for (ShapeElement *element : scene_->allElements()) {
+      auto *other = dynamic_cast<MasterBlockElement *>(element);
+      if (other && other != block && other->address() == address) {
+        error = QStringLiteral("Адрес %1 oct уже занят блоком «%2».")
+                    .arg(K1804Microcode::toOctal(address), other->name());
+        break;
+      }
+    }
+  }
+  if (!error.isEmpty()) {
+    editAddressOct_->setText(K1804Microcode::toOctal(block->address()));
+    QMessageBox::warning(this, QStringLiteral("Неверный адрес"), error);
+    return block->address();
+  }
+  return address;
+}
+
 void ElementPropertyFrame::applyMicrocodeFromInspector() {
   auto *block = dynamic_cast<MasterBlockElement *>(currentElement_);
   if (!block || isUpdating_)
@@ -546,10 +571,7 @@ void ElementPropertyFrame::applyMicrocodeFromInspector() {
     newState.stepName = step;
   }
 
-  quint16 addr = K1804Microcode::fromOctal(editAddressOct_->text());
-  if (addr >= 1 && addr <= 64) {
-    newState.address = addr;
-  }
+  newState.address = validatedAddress(block);
   lblAddressDec_->setText(QStringLiteral("(= %1 dec)").arg(newState.address));
 
   newState.mFields[1] = K1804Microcode::fromOctal(editM1Oct_->text());
@@ -615,10 +637,7 @@ void ElementPropertyFrame::onBlockHeaderEdited() {
     newState.stepName = step;
   }
 
-  quint16 addr = K1804Microcode::fromOctal(editAddressOct_->text());
-  if (addr >= 1 && addr <= 64) {
-    newState.address = addr;
-  }
+  newState.address = validatedAddress(block);
   lblAddressDec_->setText(QStringLiteral("(= %1 dec)").arg(newState.address));
 
   if (oldState.stepName != newState.stepName ||

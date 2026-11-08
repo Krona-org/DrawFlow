@@ -26,7 +26,12 @@ WindowElementsFrame::WindowElementsFrame(CanvasScene *scene, QWidget *parent)
 
     connect(scene_, &CanvasScene::elementAdded, this, &WindowElementsFrame::refreshElementsList);
     connect(scene_, &CanvasScene::elementRemoved, this, &WindowElementsFrame::refreshElementsList);
+    connect(scene_, &CanvasScene::sceneCleared, this, &WindowElementsFrame::refreshElementsList);
     connect(scene_, &CanvasScene::sceneSelectionChanged, this, &WindowElementsFrame::onSceneSelectionChanged);
+    connect(scene_, &QObject::destroyed, this, [this] {
+        scene_ = nullptr;
+        refreshElementsList();
+    });
 
     refreshElementsList();
 }
@@ -44,7 +49,12 @@ void WindowElementsFrame::setScene(CanvasScene *scene) {
         if (scene_) {
             connect(scene_, &CanvasScene::elementAdded, this, &WindowElementsFrame::refreshElementsList);
             connect(scene_, &CanvasScene::elementRemoved, this, &WindowElementsFrame::refreshElementsList);
+            connect(scene_, &CanvasScene::sceneCleared, this, &WindowElementsFrame::refreshElementsList);
             connect(scene_, &CanvasScene::sceneSelectionChanged, this, &WindowElementsFrame::onSceneSelectionChanged);
+            connect(scene_, &QObject::destroyed, this, [this] {
+                scene_ = nullptr;
+                refreshElementsList();
+            });
         }
         refreshElementsList();
     }
@@ -54,7 +64,7 @@ void WindowElementsFrame::refreshElementsList() {
     isUpdatingSelection_ = true;
     ui->treeWidget->clear();
 
-    const auto elements = scene_->allElements();
+    const auto elements = scene_ ? scene_->allElements() : QList<ShapeElement *>{};
     for (ShapeElement *element : elements) {
         auto item = new QTreeWidgetItem(ui->treeWidget);
         item->setText(0, element->name());

@@ -47,6 +47,7 @@ private:
   void populateM3Combo(bool altMode, int keepIndex);
   void populateM7Combo(bool altMode, int keepIndex);
   void applyMicrocodeFromInspector();
+  quint16 validatedAddress(MasterBlockElement *block);
 
   Ui::ElementPropertyFrame *ui = nullptr;
   CanvasScene *scene_ = nullptr;

@@ -1,6 +1,7 @@
 #include "connectorelement.h"
 #include "src/canvas/canvasscene.h"
 #include "src/canvas/orthogonalrouter.h"
+#include "src/canvas/undocommands.h"
 
 #include <QCursor>
 #include <QGraphicsSceneHoverEvent>
@@ -21,6 +22,19 @@ ConnectorElement::ConnectorElement(quint32 id, const QString &name, const QUuid 
     borderColor_ = QColor(24, 24, 27);
     borderWidth_ = 1.5;
     points_ = {p1_, p2_};
+}
+
+ConnectorElement::RouteState ConnectorElement::routeState() const {
+    return {points_, startBlock_, startPort_, endBlock_, endPort_,
+            hasManualOffset_, manualMidOffset_};
+}
+
+void ConnectorElement::setRouteState(const RouteState &state) {
+    setStartConnection(state.startBlock, state.startPort);
+    setEndConnection(state.endBlock, state.endPort);
+    if (state.hasManualOffset) setManualMidOffset(state.manualMidOffset);
+    else clearManualOffset();
+    setPoints(state.points);
 }
 
 void ConnectorElement::setP1(const QPointF &p) {
@@ -528,9 +542,25 @@ void ConnectorElement::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
 
 void ConnectorElement::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) {
     if (event->button() == Qt::LeftButton && hasManualOffset_) {
+        auto *s = dynamic_cast<CanvasScene *>(scene());
+        QHash<ConnectorElement *, RouteState> oldStates;
+        if (s && s->undoStack()) {
+            for (ShapeElement *element : s->allElements())
+                if (auto *connector = dynamic_cast<ConnectorElement *>(element))
+                    oldStates.insert(connector, connector->routeState());
+        }
         clearManualOffset();
-        if (auto s = dynamic_cast<CanvasScene *>(scene())) {
+        if (s) {
             s->updateConnectedLines();
+            if (s->undoStack()) {
+                s->undoStack()->beginMacro(QStringLiteral("Сброс маршрута"));
+                for (auto it = oldStates.cbegin(); it != oldStates.cend(); ++it) {
+                    const RouteState newState = it.key()->routeState();
+                    if (newState != it.value())
+                        s->undoStack()->push(new ResizeConnectorCommand(s, it.key(), it.value(), newState));
+                }
+                s->undoStack()->endMacro();
+            }
         }
         event->accept();
         return;

@@ -22,7 +22,7 @@ class CanvasScene : public QGraphicsScene {
 
 public:
   explicit CanvasScene(QObject *parent = nullptr);
-  ~CanvasScene() override = default;
+  ~CanvasScene() override;
 
   qreal gridSize() const { return gridSize_; }
   void setGridSize(qreal size);
@@ -73,6 +73,7 @@ public:
 signals:
   void elementAdded(ShapeElement *element);
   void elementRemoved(ShapeElement *element);
+  void sceneCleared();
   void activeToolChanged(ElementType tool);
   void sceneSelectionChanged();
   void gridSizeChanged(qreal size);
@@ -111,6 +112,7 @@ private:
   QSet<MasterBlockElement *> dirtyMovedBlocks_;
   void updateConnectedLinesForBlocks(const QSet<MasterBlockElement *> &movedBlocks);
 
+  quint32 nextElementId();
   quint16 nextAvailableMasterBlockNumber() const;
   quint32 nextAvailableConnectorNumber() const;
   quint32 nextAvailableMaskNumber() const;
@@ -145,6 +147,8 @@ private:
     MasterBlockElement *endBlock = nullptr;
     PortPosition endPort = PortPosition::None;
     bool isOrthogonal = true;
+    bool hasManualOffset = false;
+    qreal manualMidOffset = 0.0;
     LineMarkerType beginMarker = LineMarkerType::None;
     LineMarkerType endMarker = LineMarkerType::None;
     QColor borderColor;
@@ -180,9 +184,7 @@ private:
   ShapeElement *preResizeShape_ = nullptr;
   QPointF preResizePos_;
   QRectF preResizeRect_;
-  QPointF preResizeP1_;
-  QPointF preResizeP2_;
-  QVector<QPointF> preResizePoints_;
+  ConnectorElement::RouteState preResizeConnectorState_;
 
   quint32 nextElementId_ = 1;
   quint32 masterBlockCount_ = 0;

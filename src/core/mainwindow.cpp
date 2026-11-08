@@ -469,15 +469,18 @@ void MainWindow::onNewProject() {
     projectName_ = name.trimmed();
     currentFilePath_.clear();
 
-    // Удаляем все дополнительные страницы кроме первой
-    for (int i = 1; i < pages_.size(); ++i) {
-      delete pages_[i].scene;
+    const auto oldPages = pages_;
+    if (scene_) {
+      disconnect(scene_, nullptr, this, nullptr);
+      if (scene_->undoStack()) {
+        disconnect(scene_->undoStack(), nullptr, ui->actionUndo, nullptr);
+        disconnect(scene_->undoStack(), nullptr, ui->actionRedo, nullptr);
+      }
     }
     pages_.resize(1);
     pages_[0].name = QStringLiteral("Страница 1");
     activePageIndex_ = 0;
     scene_ = pages_[0].scene;
-    scene_->clearAll();
 
     tabWidget_->setPages({pages_[0].name}, 0);
     view_->setCanvasScene(scene_);
@@ -485,6 +488,9 @@ void MainWindow::onNewProject() {
     if (elementsDock_) elementsDock_->setScene(scene_);
     if (libraryDock_) libraryDock_->setScene(scene_);
     if (propertyDock_) propertyDock_->setScene(scene_);
+    scene_->clearAll();
+    for (int i = 1; i < oldPages.size(); ++i)
+      delete oldPages[i].scene;
 
     updateWindowTitle();
   }
@@ -493,7 +499,7 @@ void MainWindow::onNewProject() {
 void MainWindow::onOpenProject() {
   QString fileName = QFileDialog::getOpenFileName(
       this, QStringLiteral("Открыть схему"), QString(),
-      QStringLiteral("Схемы DrawFlow / XML (*.xml *.drawio);;Все файлы (*.*)"));
+      QStringLiteral("Схемы DrawFlow / XML (*.xml);;Все файлы (*.*)"));
   if (fileName.isEmpty()) {
     return;
   }
@@ -502,9 +508,13 @@ void MainWindow::onOpenProject() {
   QString loadedProjectName;
   QString errorMsg;
   if (ProjectStorage::loadFromFile(fileName, loadedProjectName, loadedPages, &errorMsg, this)) {
-    // Освобождаем старые сцены
-    for (const auto &p : pages_) {
-      delete p.scene;
+    const auto oldPages = pages_;
+    if (scene_) {
+      disconnect(scene_, nullptr, this, nullptr);
+      if (scene_->undoStack()) {
+        disconnect(scene_->undoStack(), nullptr, ui->actionUndo, nullptr);
+        disconnect(scene_->undoStack(), nullptr, ui->actionRedo, nullptr);
+      }
     }
     pages_.clear();
 
@@ -529,6 +539,8 @@ void MainWindow::onOpenProject() {
       if (libraryDock_) libraryDock_->setScene(scene_);
       if (propertyDock_) propertyDock_->setScene(scene_);
     }
+    for (const auto &page : oldPages)
+      delete page.scene;
     updateWindowTitle();
   } else {
     QMessageBox::critical(
@@ -565,7 +577,7 @@ void MainWindow::onSaveProjectAs() {
                             : currentFilePath_;
   QString fileName = QFileDialog::getSaveFileName(
       this, QStringLiteral("Сохранить схему как"), defaultName,
-      QStringLiteral("Схемы DrawFlow / XML (*.xml *.drawio);;Все файлы (*.*)"));
+      QStringLiteral("Схемы DrawFlow / XML (*.xml);;Все файлы (*.*)"));
   if (fileName.isEmpty()) {
     return;
   }

@@ -136,6 +136,12 @@ bool ProjectStorage::saveToFile(const QString &filePath,
   canvasNode.setAttribute(QStringLiteral("showGrid"),
                           scene->isGridVisible() ? QStringLiteral("true")
                                                  : QStringLiteral("false"));
+  canvasNode.setAttribute(QStringLiteral("pageFormat"),
+                          scene->pageFormat() == PageFormat::A4Landscape
+                              ? QStringLiteral("A4Landscape")
+                          : scene->pageFormat() == PageFormat::A4Portrait
+                              ? QStringLiteral("A4Portrait")
+                              : QStringLiteral("Infinite"));
   pageNode.appendChild(canvasNode);
 
   // Собираем элементы по категориям и сортируем по ID для удобного чтения и
@@ -282,6 +288,9 @@ bool ProjectStorage::saveToFile(const QString &filePath,
     cNode.appendChild(connInfoNode);
 
     QDomElement routeNode = doc.createElement(QStringLiteral("route"));
+    if (conn->hasManualOffset())
+      routeNode.setAttribute(QStringLiteral("manualMidOffset"),
+                             QString::number(conn->manualMidOffset(), 'g', 17));
     for (const QPointF &pt : conn->points()) {
       QDomElement ptNode = doc.createElement(QStringLiteral("point"));
       ptNode.setAttribute(QStringLiteral("x"), QString::number(pt.x()));
@@ -401,9 +410,13 @@ static bool readProject(const QString &filePath, QDomDocument &doc,
   file.close();
 
   QDomElement root = doc.documentElement();
+  if (root.tagName() == QStringLiteral("mxfile")) {
+    if (errorMessage)
+      *errorMessage = QStringLiteral("Формат draw.io не поддерживается.");
+    return false;
+  }
   if (root.tagName() != QStringLiteral("k1804project") &&
-      root.tagName() != QStringLiteral("dcsdiagram") &&
-      root.tagName() != QStringLiteral("mxfile")) {
+      root.tagName() != QStringLiteral("dcsdiagram")) {
     if (errorMessage)
       *errorMessage = QStringLiteral("Неверный формат файла проекта.");
     return false;
@@ -423,6 +436,12 @@ static bool loadPage(const QDomElement &root, CanvasScene *scene,
   // Настройки холста (поддержка как вложенного <canvas>, так и атрибутов root)
   QDomElement canvasNode = root.firstChildElement(QStringLiteral("canvas"));
   const QDomElement &gridAttrSource = canvasNode.isNull() ? root : canvasNode;
+  const QString pageFormat = gridAttrSource.attribute(QStringLiteral("pageFormat"));
+  tempScene.setPageFormat(pageFormat == QStringLiteral("A4Landscape")
+                           ? PageFormat::A4Landscape
+                       : pageFormat == QStringLiteral("A4Portrait")
+                           ? PageFormat::A4Portrait
+                           : PageFormat::Infinite);
   if (gridAttrSource.hasAttribute(QStringLiteral("gridSize"))) {
     tempScene.setGridSize(
         gridAttrSource.attribute(QStringLiteral("gridSize")).toDouble());
@@ -636,6 +655,8 @@ static bool loadPage(const QDomElement &root, CanvasScene *scene,
       bool hasExplicitRoute = false;
       QDomElement routeNode = cNode.firstChildElement(QStringLiteral("route"));
       if (!routeNode.isNull()) {
+        if (routeNode.hasAttribute(QStringLiteral("manualMidOffset")))
+          conn->setManualMidOffset(routeNode.attribute(QStringLiteral("manualMidOffset")).toDouble());
         QVector<QPointF> pts;
         for (QDomElement ptNode =
                  routeNode.firstChildElement(QStringLiteral("point"));
@@ -912,19 +933,12 @@ static bool loadPage(const QDomElement &root, CanvasScene *scene,
   // Восстанавливаем привязки коннекторов к блокам (по UID или по целочисленному
   // ID блока)
   for (const auto &pc : pendingConnections) {
-    MasterBlockElement *fromBlock = nullptr;
-    if (pc.startId > 0 && idToBlock.contains(pc.startId)) {
-      fromBlock = idToBlock[pc.startId];
-    } else if (!pc.startUid.isNull() && uidToBlock.contains(pc.startUid)) {
-      fromBlock = uidToBlock[pc.startUid];
-    }
-
-    MasterBlockElement *toBlock = nullptr;
-    if (pc.endId > 0 && idToBlock.contains(pc.endId)) {
-      toBlock = idToBlock[pc.endId];
-    } else if (!pc.endUid.isNull() && uidToBlock.contains(pc.endUid)) {
-      toBlock = uidToBlock[pc.endUid];
-    }
+    MasterBlockElement *fromBlock = !pc.startUid.isNull()
+        ? uidToBlock.value(pc.startUid, nullptr)
+        : idToBlock.value(pc.startId, nullptr);
+    MasterBlockElement *toBlock = !pc.endUid.isNull()
+        ? uidToBlock.value(pc.endUid, nullptr)
+        : idToBlock.value(pc.endId, nullptr);
 
     if (((pc.startId > 0 || !pc.startUid.isNull()) && !fromBlock) ||
         ((pc.endId > 0 || !pc.endUid.isNull()) && !toBlock)) {
@@ -942,23 +956,26 @@ static bool loadPage(const QDomElement &root, CanvasScene *scene,
     }
   }
 
-  // Сначала завершаем маршрутизацию во временной сцене.
-  for (auto *block : uidToBlock) {
-    tempScene.updateConnectedLines(block);
+  QHash<ConnectorElement *, QVector<QPointF>> explicitRoutes;
+  for (const auto &pc : pendingConnections) {
+    if (pc.hasExplicitRoute)
+      explicitRoutes.insert(pc.conn, pc.conn->points());
   }
+  for (auto *block : uidToBlock)
+    tempScene.updateConnectedLines(block);
+  for (auto it = explicitRoutes.cbegin(); it != explicitRoutes.cend(); ++it)
+    it.key()->setPoints(it.value());
 
   scene->setGridSize(tempScene.gridSize());
   scene->setSnapToGrid(tempScene.isSnapToGrid());
   scene->setGridVisible(tempScene.isGridVisible());
+  scene->setPageFormat(tempScene.pageFormat());
   scene->clearAll();
   const auto elements = tempScene.allElements();
   for (ShapeElement *element : elements) {
     tempScene.removeItem(element);
     scene->addItem(element);
     emit scene->elementAdded(element);
-  }
-  for (auto *block : uidToBlock) {
-    scene->updateConnectedLines(block);
   }
   scene->update();
   return true;
@@ -1010,6 +1027,11 @@ bool ProjectStorage::loadFromFile(const QString &filePath, QString &projectName,
     loadedPages.append({pagesNode.isNull() ? QStringLiteral("Страница 1")
                                           : pageNode.attribute(QStringLiteral("name")), scene});
     pageNode = pagesNode.isNull() ? QDomElement() : pageNode.nextSiblingElement(QStringLiteral("page"));
+  }
+  if (loadedPages.isEmpty()) {
+    if (errorMessage)
+      *errorMessage = QStringLiteral("Проект не содержит страниц.");
+    return false;
   }
   for (const PageInfo &page : loadedPages)
     page.scene->setParent(sceneParent);

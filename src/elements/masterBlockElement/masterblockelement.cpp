@@ -14,7 +14,6 @@ MasterBlockElement::MasterBlockElement(quint32 id, const QString &name,
                                        const QUuid &uid, QGraphicsItem *parent)
     : ShapeElement(id, name, uid, parent) {
   rect_ = QRectF(0, 0, 180, 110);
-  fillColor_ = Qt::white;
   borderColor_ = QColor(24, 24, 27);
   borderWidth_ = 1.5;
   setAcceptHoverEvents(true);
