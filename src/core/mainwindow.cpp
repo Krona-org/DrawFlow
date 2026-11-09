@@ -266,7 +266,7 @@ void MainWindow::onAddPage() {
 }
 
 void MainWindow::updateWindowTitle() {
-  QString title = QStringLiteral("DrawFlow — %1").arg(projectName_);
+  QString title = QStringLiteral("DrawFlow v%1 — %2").arg(APP_VERSION, projectName_);
   if (!currentFilePath_.isEmpty()) {
     title += QStringLiteral(" [%1]").arg(currentFilePath_);
   }
@@ -508,6 +508,15 @@ void MainWindow::setupUiConnections() {
     }
   });
   ui->mainToolBar->addWidget(btnUpdate_);
+
+  auto *lblVersion = new QLabel(QStringLiteral("v%1").arg(APP_VERSION), this);
+  lblVersion->setObjectName(QStringLiteral("lblAppVersion"));
+  lblVersion->setStyleSheet(QStringLiteral(
+      "QLabel#lblAppVersion {"
+      "  color: #94A3B8; font-size: 11px; padding: 2px 10px;"
+      "  background: transparent;"
+      "}"));
+  ui->menubar->setCornerWidget(lblVersion, Qt::TopRightCorner);
 }
 
 void MainWindow::onToolChanged(ElementType tool) {
