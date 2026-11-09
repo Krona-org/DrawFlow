@@ -29,6 +29,7 @@ find_package(Qt6 REQUIRED COMPONENTS
     Widgets
     Svg
     Xml
+    Network
     Test
 )
 
@@ -89,6 +90,9 @@ set(SOURCES
     src/frames/exportDialog/exportbinarydialog.h
     src/frames/exportDialog/exportbinarydialog.cpp
 
+    src/core/version.h
+    src/core/updatemanager.h
+    src/core/updatemanager.cpp
     src/core/projectstorage.h
     src/core/projectstorage.cpp
     src/core/mainwindow.h
@@ -111,6 +115,7 @@ target_link_libraries(drawflow PRIVATE
     Qt6::Widgets
     Qt6::Svg
     Qt6::Xml
+    Qt6::Network
 )
 
 enable_testing()
@@ -146,6 +151,9 @@ set(TEST_SOURCES
     src/widgets/smoothscrollarea.h
     src/widgets/smoothscrollarea.cpp
 
+    src/core/version.h
+    src/core/updatemanager.h
+    src/core/updatemanager.cpp
     src/core/projectstorage.h
     src/core/projectstorage.cpp
 )
@@ -157,6 +165,7 @@ target_link_libraries(test_drawflow PRIVATE
     Qt6::Widgets
     Qt6::Svg
     Qt6::Xml
+    Qt6::Network
     Qt6::Test
 )
 add_test(NAME test_drawflow COMMAND test_drawflow)
@@ -165,13 +174,13 @@ set(CANVAS_TEST_SOURCES ${TEST_SOURCES})
 list(REMOVE_ITEM CANVAS_TEST_SOURCES tests/test_k1804.cpp)
 add_executable(canvas_regression_tests tests/canvas_regression_tests.cpp ${CANVAS_TEST_SOURCES})
 target_link_libraries(canvas_regression_tests PRIVATE
-    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Svg Qt6::Xml Qt6::Test)
+    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Svg Qt6::Xml Qt6::Network Qt6::Test)
 add_test(NAME canvas_regression_tests COMMAND canvas_regression_tests)
 set_tests_properties(canvas_regression_tests PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(projectstorage_test tests/projectstorage_test.cpp ${CANVAS_TEST_SOURCES})
 target_link_libraries(projectstorage_test PRIVATE
-    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Svg Qt6::Xml)
+    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Svg Qt6::Xml Qt6::Network)
 add_test(NAME projectstorage COMMAND projectstorage_test)
 set_tests_properties(projectstorage PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
@@ -180,6 +189,6 @@ add_executable(drawflow_regression_tests tests/regression.cpp ${CANVAS_TEST_SOUR
     src/frames/wElementsFrame/data/windowelementsframe.cpp
     src/frames/wElementsFrame/ui/windowelementsframe.ui)
 target_link_libraries(drawflow_regression_tests PRIVATE
-    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Svg Qt6::Xml)
+    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Svg Qt6::Xml Qt6::Network)
 add_test(NAME drawflow_regression_tests COMMAND drawflow_regression_tests)
 set_tests_properties(drawflow_regression_tests PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

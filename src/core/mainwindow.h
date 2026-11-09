@@ -10,6 +10,7 @@
 
 class QActionGroup;
 class QComboBox;
+class QToolButton;
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -33,6 +34,7 @@ private slots:
     void onGridSettings();
     void onHelpContents();
     void onAbout();
+    void onCheckUpdates();
     void onToolChanged(ElementType tool);
 
     void onPageChanged(int index);
@@ -69,6 +71,8 @@ private:
 
     QActionGroup *toolActionGroup_ = nullptr;
     QComboBox *comboGridStep_ = nullptr;
+    QToolButton *btnUpdate_ = nullptr;
+    class UpdateManager *updateManager_ = nullptr;
 };
 
 } // namespace editor

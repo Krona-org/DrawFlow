@@ -6,6 +6,8 @@
 #include "src/frames/bParamsDialog/data/helpdialog.h"
 #include "src/frames/exportDialog/exportbinarydialog.h"
 #include "src/themes/thememanager.h"
+#include "updatemanager.h"
+#include "version.h"
 #include "ui_mainwindow.h"
 
 #include <QActionGroup>
@@ -20,6 +22,7 @@
 #include <QPalette>
 #include <QSettings>
 #include <QMenu>
+#include <QTimer>
 #include <QToolButton>
 
 namespace editor {
@@ -109,6 +112,39 @@ MainWindow::MainWindow(QWidget *parent)
   applyStrictMinimalistTheme();
 
   updateWindowTitle();
+
+  // Инициализация менеджера обновлений и тихая проверка при старте
+  updateManager_ = new UpdateManager(this);
+  connect(updateManager_, &UpdateManager::updateAvailable, this,
+          [this](const QString &version, const QUrl &assetUrl) {
+            if (btnUpdate_) {
+              btnUpdate_->setText(QStringLiteral("✨ Доступно обновление v%1").arg(version));
+              btnUpdate_->setProperty("assetUrl", assetUrl);
+              btnUpdate_->setVisible(true);
+            }
+          });
+  connect(updateManager_, &UpdateManager::noUpdateAvailable, this, [this]() {
+    QMessageBox::information(this, QStringLiteral("Обновления"),
+                             QStringLiteral("У вас установлена последняя версия DrawFlow (v%1).")
+                                 .arg(APP_VERSION));
+  });
+  connect(updateManager_, &UpdateManager::errorOccurred, this,
+          [this](const QString &err) {
+            QMessageBox::warning(this, QStringLiteral("Ошибка обновления"), err);
+          });
+  connect(updateManager_, &UpdateManager::installationStarted, this, [this]() {
+    QMessageBox::information(
+        this, QStringLiteral("Обновление"),
+        QStringLiteral("Загрузка завершена! Приложение будет закрыто и обновлено."));
+    QCoreApplication::quit();
+  });
+
+  // Запуск тихой проверки обновлений через 1 секунду после старта
+  QTimer::singleShot(1000, this, [this]() {
+    if (updateManager_) {
+      updateManager_->checkForUpdates(true);
+    }
+  });
 }
 
 MainWindow::~MainWindow() { delete ui; }
@@ -398,7 +434,46 @@ void MainWindow::setupUiConnections() {
   ui->menuHelp->insertSeparator(ui->actionAbout);
   connect(actionHelp, &QAction::triggered, this, &MainWindow::onHelpContents);
 
+  auto *actionUpdates = new QAction(QStringLiteral("Проверить обновления..."), this);
+  ui->menuHelp->insertAction(ui->actionAbout, actionUpdates);
+  connect(actionUpdates, &QAction::triggered, this, &MainWindow::onCheckUpdates);
+
   connect(ui->actionAbout, &QAction::triggered, this, &MainWindow::onAbout);
+
+  // Виджет-кнопка в панели инструментов (появляется только при наличии новой версии)
+  QWidget *spacer = new QWidget(ui->mainToolBar);
+  spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+  ui->mainToolBar->addWidget(spacer);
+
+  btnUpdate_ = new QToolButton(ui->mainToolBar);
+  btnUpdate_->setObjectName(QStringLiteral("btnUpdateAvailable"));
+  btnUpdate_->setToolButtonStyle(Qt::ToolButtonTextOnly);
+  btnUpdate_->setCursor(Qt::PointingHandCursor);
+  btnUpdate_->setStyleSheet(QStringLiteral(
+      "QToolButton#btnUpdateAvailable {"
+      "  background-color: #2563EB; color: white; font-weight: bold;"
+      "  border-radius: 4px; padding: 4px 10px; margin-right: 8px;"
+      "}"
+      "QToolButton#btnUpdateAvailable:hover {"
+      "  background-color: #1D4ED8;"
+      "}"));
+  btnUpdate_->setVisible(false);
+  connect(btnUpdate_, &QToolButton::clicked, this, [this]() {
+    QUrl assetUrl = btnUpdate_->property("assetUrl").toUrl();
+    if (!assetUrl.isValid()) return;
+
+    auto res = QMessageBox::question(
+        this, QStringLiteral("Обновление DrawFlow"),
+        QStringLiteral("Скачать и установить последнюю версию?\n"
+                       "Приложение будет автоматически перезапущено."),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+    if (res == QMessageBox::Yes && updateManager_) {
+      btnUpdate_->setEnabled(false);
+      btnUpdate_->setText(QStringLiteral("⏳ Скачивание обновления..."));
+      updateManager_->downloadAndInstallUpdate(assetUrl);
+    }
+  });
+  ui->mainToolBar->addWidget(btnUpdate_);
 }
 
 void MainWindow::onToolChanged(ElementType tool) {
@@ -688,9 +763,17 @@ void MainWindow::onAbout() {
       this, QStringLiteral("О программе"),
       QStringLiteral(
           "<h3>DrawFlow</h3>"
+          "<p>Версия: <b>%1</b></p>"
           "<p>Минималистичная среда редактирования схем и диаграмм.</p>"
-          "<p>Собрано с Qt <b>%1</b>.</p>")
+          "<p>Собрано с Qt <b>%2</b>.</p>")
+          .arg(APP_VERSION)
           .arg(QT_VERSION_STR));
+}
+
+void MainWindow::onCheckUpdates() {
+  if (updateManager_) {
+    updateManager_->checkForUpdates(false);
+  }
 }
 
 } // namespace editor
