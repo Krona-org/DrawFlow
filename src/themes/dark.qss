@@ -70,3 +70,4 @@ QLabel#helpBadgeBlue { background-color: #334962; color: #bad7fb; border-color: 
 QLabel#helpBadgeGreen { background-color: #243d32; color: #a6dfbd; border-color: #4b8063; }
 QLabel#helpBadgePurple { background-color: #3e324e; color: #d8bdf0; border-color: #725b8a; }
 QLabel#helpBadgeAmber { background-color: #483b2c; color: #efcf98; border-color: #846b49; }
+QLabel#lblAppVersion { color: #B8C4D4; }

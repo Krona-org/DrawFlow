@@ -123,6 +123,7 @@ MainWindow::MainWindow(QWidget *parent)
               btnUpdate_->setProperty("latestVersion", version);
               btnUpdate_->setEnabled(true);
               btnUpdate_->setVisible(true);
+              refreshUpdateButtonGeometry();
             }
             if (property("manualUpdateCheck").toBool()) {
               setProperty("manualUpdateCheck", false);
@@ -136,6 +137,7 @@ MainWindow::MainWindow(QWidget *parent)
                 if (btnUpdate_) {
                   btnUpdate_->setEnabled(false);
                   btnUpdate_->setText(QStringLiteral("⏳ Скачивание обновления..."));
+                  refreshUpdateButtonGeometry();
                 }
                 updateManager_->downloadAndInstallUpdate(assetUrl);
               }
@@ -146,6 +148,7 @@ MainWindow::MainWindow(QWidget *parent)
             if (btnUpdate_ && total > 0) {
               int pct = static_cast<int>((received * 100) / total);
               btnUpdate_->setText(QStringLiteral("⏳ Скачивание... %1%").arg(pct));
+              refreshUpdateButtonGeometry();
             }
           });
   connect(updateManager_, &UpdateManager::noUpdateAvailable, this, [this]() {
@@ -157,11 +160,12 @@ MainWindow::MainWindow(QWidget *parent)
   connect(updateManager_, &UpdateManager::errorOccurred, this,
           [this](const QString &err) {
             setProperty("manualUpdateCheck", false);
-            if (btnUpdate_ && btnUpdate_->isVisible()) {
+            if (btnUpdate_ && !btnUpdate_->isHidden()) {
               QString ver = btnUpdate_->property("latestVersion").toString();
               btnUpdate_->setEnabled(true);
               if (!ver.isEmpty()) {
                 btnUpdate_->setText(QStringLiteral("✨ Доступно обновление v%1").arg(ver));
+                refreshUpdateButtonGeometry();
               }
             }
             QMessageBox::warning(this, QStringLiteral("Ошибка обновления"), err);
@@ -474,24 +478,25 @@ void MainWindow::setupUiConnections() {
 
   connect(ui->actionAbout, &QAction::triggered, this, &MainWindow::onAbout);
 
-  // Виджет-кнопка в панели инструментов (появляется только при наличии новой версии)
-  QWidget *spacer = new QWidget(ui->mainToolBar);
-  spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-  ui->mainToolBar->addWidget(spacer);
+  // Кнопка обновления и версия приложения в правом углу меню.
+  menuCornerWidget_ = new QWidget(ui->menubar);
+  menuCornerWidget_->setStyleSheet(QStringLiteral("background: transparent;"));
+  auto *cornerLayout = new QHBoxLayout(menuCornerWidget_);
+  cornerLayout->setContentsMargins(0, 0, 0, 0);
+  cornerLayout->setSpacing(0);
 
-  btnUpdate_ = new QToolButton(ui->mainToolBar);
+  btnUpdate_ = new QToolButton(menuCornerWidget_);
   btnUpdate_->setObjectName(QStringLiteral("btnUpdateAvailable"));
   btnUpdate_->setToolButtonStyle(Qt::ToolButtonTextOnly);
   btnUpdate_->setCursor(Qt::PointingHandCursor);
   btnUpdate_->setStyleSheet(QStringLiteral(
       "QToolButton#btnUpdateAvailable {"
-      "  background-color: #2563EB; color: white; font-weight: bold;"
-      "  border-radius: 4px; padding: 4px 10px; margin-right: 8px;"
+      "  background-color: #4A6FA5; color: #F8FAFC; font-size: 11px; font-weight: 600;"
+      "  border-radius: 9px; padding: 2px 10px; margin: 1px 4px;"
       "}"
       "QToolButton#btnUpdateAvailable:hover {"
-      "  background-color: #1D4ED8;"
+      "  background-color: #3B5B8C;"
       "}"));
-  btnUpdate_->setVisible(false);
   connect(btnUpdate_, &QToolButton::clicked, this, [this]() {
     QUrl assetUrl = btnUpdate_->property("assetUrl").toUrl();
     if (!assetUrl.isValid()) return;
@@ -504,19 +509,31 @@ void MainWindow::setupUiConnections() {
     if (res == QMessageBox::Yes && updateManager_) {
       btnUpdate_->setEnabled(false);
       btnUpdate_->setText(QStringLiteral("⏳ Скачивание обновления..."));
+      refreshUpdateButtonGeometry();
       updateManager_->downloadAndInstallUpdate(assetUrl);
     }
   });
-  ui->mainToolBar->addWidget(btnUpdate_);
+  cornerLayout->addWidget(btnUpdate_);
+  btnUpdate_->setVisible(false);
 
-  auto *lblVersion = new QLabel(QStringLiteral("v%1").arg(APP_VERSION), this);
+  auto *lblVersion = new QLabel(QStringLiteral("v%1").arg(APP_VERSION), menuCornerWidget_);
   lblVersion->setObjectName(QStringLiteral("lblAppVersion"));
-  lblVersion->setStyleSheet(QStringLiteral(
-      "QLabel#lblAppVersion {"
-      "  color: #94A3B8; font-size: 11px; padding: 2px 10px;"
-      "  background: transparent;"
-      "}"));
-  ui->menubar->setCornerWidget(lblVersion, Qt::TopRightCorner);
+  cornerLayout->addWidget(lblVersion);
+  ui->menubar->setCornerWidget(menuCornerWidget_, Qt::TopRightCorner);
+  refreshUpdateButtonGeometry();
+}
+
+void MainWindow::refreshUpdateButtonGeometry() {
+  if (!btnUpdate_ || !menuCornerWidget_)
+    return;
+  btnUpdate_->adjustSize();
+  if (menuCornerWidget_->layout()) {
+    menuCornerWidget_->layout()->invalidate();
+    menuCornerWidget_->layout()->activate();
+  }
+  menuCornerWidget_->adjustSize();
+  menuCornerWidget_->updateGeometry();
+  ui->menubar->setCornerWidget(menuCornerWidget_, Qt::TopRightCorner);
 }
 
 void MainWindow::onToolChanged(ElementType tool) {

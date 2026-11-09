@@ -46,6 +46,7 @@ private:
     QWidget* createCustomDockTitleBar(const QString &title, QDockWidget *dock);
     void applyStrictMinimalistTheme();
     void updateWindowTitle();
+    void refreshUpdateButtonGeometry();
 
     void connectScene(CanvasScene *scene);
 
@@ -72,6 +73,7 @@ private:
     QActionGroup *toolActionGroup_ = nullptr;
     QComboBox *comboGridStep_ = nullptr;
     QToolButton *btnUpdate_ = nullptr;
+    QWidget *menuCornerWidget_ = nullptr;
     class UpdateManager *updateManager_ = nullptr;
 };
 
