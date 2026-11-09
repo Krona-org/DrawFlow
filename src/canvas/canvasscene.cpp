@@ -10,16 +10,39 @@
 #include <QInputDialog>
 #include <QKeyEvent>
 #include <QPainter>
+#include <QPointer>
 #include <cmath>
 #include <climits>
 
 namespace editor {
 
+namespace {
+class ResizeTextCommand : public QUndoCommand {
+public:
+  ResizeTextCommand(TextElement *text, const QPointF &oldPos, const QRectF &oldRect,
+                    const QPointF &newPos, const QRectF &newRect)
+      : text_(text), oldPos_(oldPos), newPos_(newPos), oldRect_(oldRect), newRect_(newRect) {
+    setText(QStringLiteral("Изменение размера: %1").arg(text->name()));
+  }
+  void undo() override { apply(oldPos_, oldRect_); }
+  void redo() override { apply(newPos_, newRect_); }
+private:
+  void apply(const QPointF &pos, const QRectF &rect) {
+    if (!text_) return;
+    text_->setRect(rect);
+    text_->setPos(pos);
+  }
+  QPointer<TextElement> text_;
+  QPointF oldPos_, newPos_;
+  QRectF oldRect_, newRect_;
+};
+}
+
 CanvasScene::SceneClipboard CanvasScene::s_clipboard_;
 
 bool CanvasScene::hasClipboardContent() {
   return !s_clipboard_.blocks.isEmpty() || !s_clipboard_.connectors.isEmpty() ||
-         !s_clipboard_.masks.isEmpty();
+         !s_clipboard_.masks.isEmpty() || !s_clipboard_.texts.isEmpty();
 }
 
 void CanvasScene::copySelection() {
@@ -30,6 +53,7 @@ void CanvasScene::copySelection() {
   s_clipboard_.blocks.clear();
   s_clipboard_.connectors.clear();
   s_clipboard_.masks.clear();
+  s_clipboard_.texts.clear();
   s_clipboard_.pasteCount = 0;
 
   for (QGraphicsItem *item : sel) {
@@ -88,6 +112,21 @@ void CanvasScene::copySelection() {
       data.fillStyle = mask->fillStyle();
       data.zValue = mask->persistentZValue();
       s_clipboard_.masks.append(data);
+    } else if (auto text = dynamic_cast<TextElement *>(item)) {
+      TextClipboardData data;
+      data.pos = text->pos();
+      data.rect = text->rect();
+      data.text = text->text();
+      data.fontFamily = text->fontFamily();
+      data.fontSize = text->fontSize();
+      data.textColor = text->textColor();
+      data.borderColor = text->borderColor();
+      data.borderWidth = text->borderWidth();
+      data.borderStyle = text->borderStyle();
+      data.fillColor = text->fillColor();
+      data.fillStyle = text->fillStyle();
+      data.zValue = text->persistentZValue();
+      s_clipboard_.texts.append(data);
     }
   }
 }
@@ -249,6 +288,30 @@ void CanvasScene::pasteClipboard() {
       addItem(newMask);
       newMask->setSelected(true);
       emit elementAdded(newMask);
+    }
+  }
+
+  for (const auto &data : s_clipboard_.texts) {
+    const quint32 id = allocateId();
+    auto text = new TextElement(id, QStringLiteral("Text %1").arg(id), QUuid::createUuid());
+    text->setPos(snapPoint(data.pos + offset));
+    text->setFontFamily(data.fontFamily);
+    text->setFontSize(data.fontSize);
+    text->setText(data.text);
+    text->setRect(data.rect);
+    text->setTextColor(data.textColor);
+    text->setBorderColor(data.borderColor);
+    text->setBorderWidth(data.borderWidth);
+    text->setBorderStyle(data.borderStyle);
+    text->setFillColor(data.fillColor);
+    text->setFillStyle(data.fillStyle);
+    text->setZValue(data.zValue);
+    if (undoStack_) {
+      undoStack_->push(new AddElementCommand(this, text, false));
+    } else {
+      addItem(text);
+      text->setSelected(true);
+      emit elementAdded(text);
     }
   }
 
@@ -876,9 +939,10 @@ ShapeElement *CanvasScene::addElementAt(ElementType type,
     }
     return maskItem;
   } else if (type == ElementType::Text) {
-    QString name = QStringLiteral("Text %1").arg(nextElementId());
+    const quint32 id = nextElementId();
+    QString name = QStringLiteral("Text %1").arg(id);
     auto textItem =
-        new TextElement(nextElementId(), name, QUuid::createUuid());
+        new TextElement(id, name, QUuid::createUuid());
     textItem->setPos(pos);
     textItem->setRect(QRectF(0, 0, 120, 30));
     if (undoStack_) {
@@ -1014,6 +1078,9 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
           if (auto block = dynamic_cast<MasterBlockElement *>(shape)) {
             preResizePos_ = block->pos();
             preResizeRect_ = block->rect();
+          } else if (auto text = dynamic_cast<TextElement *>(shape)) {
+            preResizePos_ = text->pos();
+            preResizeRect_ = text->rect();
           } else if (auto conn = dynamic_cast<ConnectorElement *>(shape)) {
             preResizeConnectorState_ = conn->routeState();
           }
@@ -1454,6 +1521,15 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
         preMovePositions_.clear();
         return;
       }
+    } else if (auto text = dynamic_cast<TextElement *>(preResizeShape_)) {
+      if (text->pos() != preResizePos_ || text->rect() != preResizeRect_) {
+        if (undoStack_)
+          undoStack_->push(new ResizeTextCommand(text, preResizePos_, preResizeRect_,
+                                                 text->pos(), text->rect()));
+        preResizeShape_ = nullptr;
+        preMovePositions_.clear();
+        return;
+      }
     } else if (auto conn = dynamic_cast<ConnectorElement *>(preResizeShape_)) {
       if (conn->routeState() != preResizeConnectorState_) {
         if (undoStack_) {
@@ -1497,7 +1573,7 @@ void CanvasScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) {
     if (textElem) {
       clearSelection();
       textElem->setSelected(true);
-      textElem->startEditing(false);
+      textElem->startEditingAt(event->scenePos());
       event->accept();
       return;
     } else if (auto block = dynamic_cast<MasterBlockElement *>(clickedItem)) {

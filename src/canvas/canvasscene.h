@@ -176,10 +176,26 @@ private:
     qreal zValue = 0.0;
   };
 
+  struct TextClipboardData {
+    QPointF pos;
+    QRectF rect;
+    QString text;
+    QString fontFamily;
+    int fontSize = 12;
+    QColor textColor;
+    QColor borderColor;
+    qreal borderWidth = 1.0;
+    Qt::PenStyle borderStyle = Qt::NoPen;
+    QColor fillColor;
+    Qt::BrushStyle fillStyle = Qt::NoBrush;
+    qreal zValue = 0.0;
+  };
+
   struct SceneClipboard {
     QList<MasterBlockClipboardData> blocks;
     QList<ConnectorClipboardData> connectors;
     QList<MaskClipboardData> masks;
+    QList<TextClipboardData> texts;
     int pasteCount = 0;
   };
 

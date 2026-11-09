@@ -1,5 +1,10 @@
 #include "textelement.h"
+#include "src/canvas/canvasscene.h"
 #include "src/themes/canvascolors.h"
+
+#include <QAbstractTextDocumentLayout>
+#include <QPointer>
+#include <QUndoCommand>
 
 #include <QEvent>
 #include <QFocusEvent>
@@ -14,6 +19,29 @@
 
 namespace editor {
 namespace {
+class EditTextCommand : public QUndoCommand {
+public:
+    EditTextCommand(TextElement *element, const QString &beforeText, const QRectF &beforeRect,
+                    const QString &afterText, const QRectF &afterRect)
+        : element_(element), beforeText_(beforeText), afterText_(afterText),
+          beforeRect_(beforeRect), afterRect_(afterRect) {
+        setText(QStringLiteral("Редактирование текста"));
+    }
+
+    void undo() override { apply(beforeText_, beforeRect_); }
+    void redo() override { apply(afterText_, afterRect_); }
+
+private:
+    void apply(const QString &text, const QRectF &rect) {
+        if (!element_) return;
+        element_->setText(text);
+        element_->setRect(rect);
+    }
+    QPointer<TextElement> element_;
+    QString beforeText_, afterText_;
+    QRectF beforeRect_, afterRect_;
+};
+
 class EditableTextItem : public QGraphicsTextItem {
 public:
     explicit EditableTextItem(TextElement *owner) : QGraphicsTextItem(owner), owner_(owner) {}
@@ -149,6 +177,10 @@ void TextElement::adjustHeightToDocument() {
 
 void TextElement::startEditing(bool selectAll) {
     if (!isEditing_) {
+        editingStartText_ = text_;
+        editingStartRect_ = rect_;
+        textItem_->document()->setUndoRedoEnabled(false);
+        textItem_->document()->setUndoRedoEnabled(true);
         isEditing_ = true;
         textItem_->setAcceptedMouseButtons(Qt::LeftButton | Qt::RightButton);
         textItem_->setTextInteractionFlags(Qt::TextEditorInteraction);
@@ -164,6 +196,17 @@ void TextElement::startEditing(bool selectAll) {
     update();
 }
 
+void TextElement::startEditingAt(const QPointF &scenePos) {
+    startEditing(false);
+    const QPointF documentPos = textItem_->mapFromScene(scenePos);
+    const int position = textItem_->document()->documentLayout()->hitTest(documentPos, Qt::FuzzyHit);
+    if (position >= 0) {
+        QTextCursor cursor = textItem_->textCursor();
+        cursor.setPosition(position);
+        textItem_->setTextCursor(cursor);
+    }
+}
+
 void TextElement::finishEditing() {
     if (!isEditing_) return;
     isEditing_ = false;
@@ -176,6 +219,12 @@ void TextElement::finishEditing() {
     textItem_->setTextInteractionFlags(Qt::NoTextInteraction);
     textItem_->setAcceptedMouseButtons(Qt::NoButton);
     update();
+    if (text_ != editingStartText_ || rect_ != editingStartRect_) {
+        if (auto canvas = qobject_cast<CanvasScene *>(scene())) {
+            if (canvas->undoStack())
+                canvas->undoStack()->push(new EditTextCommand(this, editingStartText_, editingStartRect_, text_, rect_));
+        }
+    }
 }
 
 void TextElement::moveHandle(ResizeHandle handle, const QPointF &currentScenePos,
@@ -222,7 +271,10 @@ void TextElement::drawShape(QPainter *painter) {
         painter->setBrush(QBrush(canvasFillColor(fillColor_), fillStyle_));
     else
         painter->setBrush(Qt::NoBrush);
-    if (borderStyle_ != Qt::NoPen) {
+    if (isEditing_) {
+        painter->setPen(QPen(isDarkCanvasTheme() ? QColor(110, 180, 255) : QColor(25, 105, 210),
+                             2.0, Qt::DashLine));
+    } else if (borderStyle_ != Qt::NoPen) {
         painter->setPen(QPen(borderColor_, borderWidth_, borderStyle_, Qt::SquareCap, Qt::MiterJoin));
     } else {
         QColor guideColor = isDarkCanvasTheme() ? QColor(120, 130, 145) : QColor(180, 190, 205);

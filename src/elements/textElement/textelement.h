@@ -31,6 +31,7 @@ public:
     void setFontFamily(const QString &family);
 
     void startEditing(bool selectAll = false);
+    void startEditingAt(const QPointF &scenePos);
     void finishEditing();
     bool isEditing() const { return isEditing_; }
 
@@ -52,6 +53,8 @@ private:
     QGraphicsTextItem *textItem_ = nullptr;
     bool isEditing_ = false;
     bool updatingText_ = false;
+    QString editingStartText_;
+    QRectF editingStartRect_;
 };
 
 } // namespace editor
