@@ -1095,6 +1095,15 @@ void CanvasScene::mousePressEvent(QGraphicsSceneMouseEvent *event) {
         maskItem->setRect(QRectF(0, 0, 100, 22));
         addItem(maskItem);
         currentCreatingElement_ = maskItem;
+      } else if (activeTool_ == ElementType::Text) {
+        quint32 id = nextElementId();
+        QString name = QStringLiteral("Text %1").arg(id);
+        auto textItem =
+            new TextElement(id, name, QUuid::createUuid());
+        textItem->setPos(createStartPos_);
+        textItem->setRect(QRectF(0, 0, 120, 30));
+        addItem(textItem);
+        currentCreatingElement_ = textItem;
       }
 
       event->accept();
@@ -1298,6 +1307,14 @@ void CanvasScene::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
       qreal h = std::abs(delta.y());
       maskItem->setPos(x, y);
       maskItem->setRect(QRectF(0, 0, qMax(80.0, w), qMax(20.0, h)));
+    } else if (auto textItem =
+                   dynamic_cast<TextElement *>(currentCreatingElement_)) {
+      qreal x = delta.x() >= 0 ? createStartPos_.x() : curPos.x();
+      qreal y = delta.y() >= 0 ? createStartPos_.y() : curPos.y();
+      qreal w = std::abs(delta.x());
+      qreal h = std::abs(delta.y());
+      textItem->setPos(x, y);
+      textItem->setRect(QRectF(0, 0, qMax(120.0, w), qMax(30.0, h)));
     }
 
     event->accept();

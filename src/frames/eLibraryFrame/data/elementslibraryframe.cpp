@@ -80,6 +80,8 @@ void ShapeCard::mouseMoveEvent(QMouseEvent *event) {
     typeStr = QStringLiteral("masterblock");
   } else if (type_ == ElementType::Mask) {
     typeStr = QStringLiteral("mask");
+  } else if (type_ == ElementType::Text) {
+    typeStr = QStringLiteral("text");
   }
   mimeData->setData(QStringLiteral("application/x-drawflow-element-type"),
                     typeStr.toUtf8());
