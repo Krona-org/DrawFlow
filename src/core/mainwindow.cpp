@@ -120,16 +120,50 @@ MainWindow::MainWindow(QWidget *parent)
             if (btnUpdate_) {
               btnUpdate_->setText(QStringLiteral("✨ Доступно обновление v%1").arg(version));
               btnUpdate_->setProperty("assetUrl", assetUrl);
+              btnUpdate_->setProperty("latestVersion", version);
+              btnUpdate_->setEnabled(true);
               btnUpdate_->setVisible(true);
+            }
+            if (property("manualUpdateCheck").toBool()) {
+              setProperty("manualUpdateCheck", false);
+              auto res = QMessageBox::question(
+                  this, QStringLiteral("Доступно обновление"),
+                  QStringLiteral("Найдена новая версия DrawFlow v%1 (текущая: v%2).\n\n"
+                                 "Скачать и установить обновление сейчас?")
+                      .arg(version, APP_VERSION),
+                  QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+              if (res == QMessageBox::Yes && updateManager_) {
+                if (btnUpdate_) {
+                  btnUpdate_->setEnabled(false);
+                  btnUpdate_->setText(QStringLiteral("⏳ Скачивание обновления..."));
+                }
+                updateManager_->downloadAndInstallUpdate(assetUrl);
+              }
+            }
+          });
+  connect(updateManager_, &UpdateManager::downloadProgress, this,
+          [this](qint64 received, qint64 total) {
+            if (btnUpdate_ && total > 0) {
+              int pct = static_cast<int>((received * 100) / total);
+              btnUpdate_->setText(QStringLiteral("⏳ Скачивание... %1%").arg(pct));
             }
           });
   connect(updateManager_, &UpdateManager::noUpdateAvailable, this, [this]() {
+    setProperty("manualUpdateCheck", false);
     QMessageBox::information(this, QStringLiteral("Обновления"),
                              QStringLiteral("У вас установлена последняя версия DrawFlow (v%1).")
                                  .arg(APP_VERSION));
   });
   connect(updateManager_, &UpdateManager::errorOccurred, this,
           [this](const QString &err) {
+            setProperty("manualUpdateCheck", false);
+            if (btnUpdate_ && btnUpdate_->isVisible()) {
+              QString ver = btnUpdate_->property("latestVersion").toString();
+              btnUpdate_->setEnabled(true);
+              if (!ver.isEmpty()) {
+                btnUpdate_->setText(QStringLiteral("✨ Доступно обновление v%1").arg(ver));
+              }
+            }
             QMessageBox::warning(this, QStringLiteral("Ошибка обновления"), err);
           });
   connect(updateManager_, &UpdateManager::installationStarted, this, [this]() {
@@ -772,6 +806,7 @@ void MainWindow::onAbout() {
 
 void MainWindow::onCheckUpdates() {
   if (updateManager_) {
+    setProperty("manualUpdateCheck", true);
     updateManager_->checkForUpdates(false);
   }
 }

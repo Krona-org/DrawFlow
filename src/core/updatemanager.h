@@ -29,6 +29,8 @@ signals:
 private:
     void reportError(const QString &message, bool silent = false);
     QNetworkAccessManager m_network;
+    QNetworkReply *m_checkReply = nullptr;
+    bool m_silentCheck = false;
     bool m_busy = false;
 };
 

@@ -28,30 +28,43 @@ void UpdateManager::reportError(const QString &message, bool silent)
 
 void UpdateManager::checkForUpdates(bool silent)
 {
+    if (m_checkReply) {
+        if (!silent) {
+            m_silentCheck = false;
+        }
+        return;
+    }
     if (m_busy) {
         if (!silent)
-            emit errorOccurred(tr("Another update operation is in progress."));
+            emit errorOccurred(QStringLiteral("Скачивание обновления уже выполняется. Пожалуйста, подождите."));
         return;
     }
     m_busy = true;
+    m_silentCheck = silent;
     QNetworkRequest request{QUrl(QStringLiteral("https://api.github.com/repos/") + GITHUB_REPO
                                  + QStringLiteral("/releases/latest"))};
     request.setRawHeader("User-Agent", "DrawFlow-update-checker");
     request.setRawHeader("Accept", "application/vnd.github+json");
+    request.setTransferTimeout(15000);
     auto *reply = m_network.get(request);
-    connect(reply, &QNetworkReply::finished, this, [this, reply, silent] {
+    m_checkReply = reply;
+    connect(reply, &QNetworkReply::finished, this, [this, reply] {
+        const bool isSilent = m_silentCheck;
+        if (m_checkReply == reply) {
+            m_checkReply = nullptr;
+        }
         const auto error = reply->error();
         const QString errorText = reply->errorString();
         const QByteArray data = reply->readAll();
         reply->deleteLater();
         if (error != QNetworkReply::NoError) {
-            reportError(tr("Update check failed: %1").arg(errorText), silent);
+            reportError(QStringLiteral("Не удалось проверить обновления: %1").arg(errorText), isSilent);
             return;
         }
         QJsonParseError parseError;
         const auto document = QJsonDocument::fromJson(data, &parseError);
         if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
-            reportError(tr("Invalid release information."), silent);
+            reportError(QStringLiteral("Получены некорректные данные о релизе с GitHub."), isSilent);
             return;
         }
         const auto release = document.object();
@@ -62,12 +75,12 @@ void UpdateManager::checkForUpdates(bool silent)
         const auto latest = QVersionNumber::fromString(tag, &suffix);
         const auto current = QVersionNumber::fromString(APP_VERSION);
         if (latest.isNull() || suffix != tag.size() || current.isNull()) {
-            reportError(tr("Invalid release version: %1").arg(tag), silent);
+            reportError(QStringLiteral("Некорректный формат версии релиза: %1").arg(tag), isSilent);
             return;
         }
         m_busy = false;
         if (QVersionNumber::compare(latest, current) <= 0) {
-            if (!silent)
+            if (!isSilent)
                 emit noUpdateAvailable();
             return;
         }
@@ -80,7 +93,7 @@ void UpdateManager::checkForUpdates(bool silent)
                 return;
             }
         }
-        reportError(tr("The release does not contain a ZIP update."), silent);
+        reportError(QStringLiteral("В релизе v%1 на GitHub не найден ZIP-архив обновления.").arg(tag), isSilent);
     });
 }
 
@@ -88,30 +101,37 @@ void UpdateManager::downloadAndInstallUpdate(const QUrl &assetUrl)
 {
 #ifndef Q_OS_WIN
     Q_UNUSED(assetUrl);
-    emit errorOccurred(tr("Automatic installation is only supported on Windows."));
+    emit errorOccurred(QStringLiteral("Автоматическое обновление поддерживается только в Windows."));
 #else
+    if (m_checkReply) {
+        m_checkReply->abort();
+        m_checkReply->deleteLater();
+        m_checkReply = nullptr;
+        m_busy = false;
+    }
     if (m_busy) {
-        emit errorOccurred(tr("Another update operation is in progress."));
+        emit errorOccurred(QStringLiteral("Скачивание обновления уже выполняется. Пожалуйста, подождите."));
         return;
     }
     if (!assetUrl.isValid() || assetUrl.scheme() != QStringLiteral("https")) {
-        emit errorOccurred(tr("The update URL must use HTTPS."));
+        emit errorOccurred(QStringLiteral("Ссылка на обновление должна использовать HTTPS."));
         return;
     }
     auto temp = std::make_shared<QTemporaryDir>();
     if (!temp->isValid()) {
-        emit errorOccurred(tr("Cannot create a temporary update directory."));
+        emit errorOccurred(QStringLiteral("Не удалось создать временную папку для обновления."));
         return;
     }
     auto archive = std::make_shared<QFile>(temp->filePath(QStringLiteral("update.zip")));
     if (!archive->open(QIODevice::WriteOnly)) {
-        emit errorOccurred(tr("Cannot create the update archive."));
+        emit errorOccurred(QStringLiteral("Не удалось создать временный архив обновления."));
         return;
     }
     m_busy = true;
     QNetworkRequest request(assetUrl);
     request.setRawHeader("User-Agent", "DrawFlow-update-checker");
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setTransferTimeout(60000);
     auto *reply = m_network.get(request);
     auto writeFailed = std::make_shared<bool>(false);
     connect(reply, &QNetworkReply::downloadProgress, this, &UpdateManager::downloadProgress);
@@ -131,18 +151,19 @@ void UpdateManager::downloadAndInstallUpdate(const QUrl &assetUrl)
         const QString errorText = reply->errorString();
         reply->deleteLater();
         if (*writeFailed || error != QNetworkReply::NoError) {
-            reportError(tr("Update download failed: %1").arg(*writeFailed ? tr("Cannot write archive") : errorText));
+            reportError(QStringLiteral("Ошибка скачивания обновления: %1")
+                            .arg(*writeFailed ? QStringLiteral("не удалось записать архив") : errorText));
             return;
         }
         const QString extracted = temp->filePath(QStringLiteral("extracted"));
         if (!QDir().mkpath(extracted)) {
-            reportError(tr("Cannot create the extraction directory."));
+            reportError(QStringLiteral("Не удалось создать папку для распаковки обновления."));
             return;
         }
         auto *process = new QProcess(this);
         connect(process, &QProcess::errorOccurred, this, [this, process](QProcess::ProcessError error) {
             if (error == QProcess::FailedToStart) {
-                reportError(tr("Cannot start tar to extract the update."));
+                reportError(QStringLiteral("Не удалось запустить tar.exe для распаковки обновления."));
                 process->deleteLater();
             }
         });
@@ -150,7 +171,7 @@ void UpdateManager::downloadAndInstallUpdate(const QUrl &assetUrl)
                 [this, process, temp, extracted](int code, QProcess::ExitStatus status) {
             process->deleteLater();
             if (status != QProcess::NormalExit || code != 0) {
-                reportError(tr("Cannot extract the update archive."));
+                reportError(QStringLiteral("Не удалось распаковать архив обновления."));
                 return;
             }
             const QString executable = QFileInfo(QCoreApplication::applicationFilePath()).fileName();
@@ -161,21 +182,21 @@ void UpdateManager::downloadAndInstallUpdate(const QUrl &assetUrl)
                     source = QDir(extracted).filePath(dirs.first());
             }
             if (!QFileInfo::exists(QDir(source).filePath(executable))) {
-                reportError(tr("The update archive does not contain %1.").arg(executable));
+                reportError(QStringLiteral("В архиве обновления не найден файл %1.").arg(executable));
                 return;
             }
             QFile script(temp->filePath(QStringLiteral("install.bat")));
             if (!script.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-                reportError(tr("Cannot create the update script."));
+                reportError(QStringLiteral("Не удалось создать скрипт установки обновления."));
                 return;
             }
             const QByteArray batch = "@echo off\r\nsetlocal DisableDelayedExpansion\r\n"
                 "powershell.exe -NoProfile -NonInteractive -Command \"Wait-Process -Id %~1 -ErrorAction SilentlyContinue\"\r\n"
-                "robocopy %2 %3 /E /R:3 /W:1 >nul\r\n"
+                "robocopy \"%~2\" \"%~3\" /E /R:3 /W:1 >nul\r\n"
                 "if errorlevel 8 exit /b 1\r\n"
-                "start \"\" %4\r\n";
+                "start \"\" \"%~4\"\r\n";
             if (script.write(batch) != batch.size() || !script.flush()) {
-                reportError(tr("Cannot write the update script."));
+                reportError(QStringLiteral("Не удалось записать скрипт установки обновления."));
                 return;
             }
             script.close();
@@ -184,7 +205,7 @@ void UpdateManager::downloadAndInstallUpdate(const QUrl &assetUrl)
                 QDir::toNativeSeparators(QCoreApplication::applicationDirPath()),
                 QDir::toNativeSeparators(QCoreApplication::applicationFilePath())};
             if (!QProcess::startDetached(QStringLiteral("cmd.exe"), arguments)) {
-                reportError(tr("Cannot start the update installer."));
+                reportError(QStringLiteral("Не удалось запустить установщик обновления."));
                 return;
             }
             temp->setAutoRemove(false);
