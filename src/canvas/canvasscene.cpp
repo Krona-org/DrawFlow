@@ -1,5 +1,6 @@
 #include "canvasscene.h"
 #include "orthogonalrouter.h"
+#include "src/elements/textElement/textelement.h"
 #include "src/frames/bParamsDialog/data/blockparamsdialog.h"
 #include "undocommands.h"
 
@@ -874,6 +875,20 @@ ShapeElement *CanvasScene::addElementAt(ElementType type,
       emit elementAdded(maskItem);
     }
     return maskItem;
+  } else if (type == ElementType::Text) {
+    QString name = QStringLiteral("Text %1").arg(nextElementId());
+    auto textItem =
+        new TextElement(nextElementId(), name, QUuid::createUuid());
+    textItem->setPos(pos);
+    textItem->setRect(QRectF(0, 0, 120, 30));
+    if (undoStack_) {
+      undoStack_->push(new AddElementCommand(this, textItem, false));
+    } else {
+      addItem(textItem);
+      textItem->setSelected(true);
+      emit elementAdded(textItem);
+    }
+    return textItem;
   }
   return nullptr;
 }

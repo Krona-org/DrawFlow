@@ -4,6 +4,7 @@
 #include "src/elements/maskElement/maskelement.h"
 #include "src/elements/masterBlockElement/k1804microcode.h"
 #include "src/elements/masterBlockElement/masterblockelement.h"
+#include "src/elements/textElement/textelement.h"
 
 #include <QDataStream>
 #include <QDebug>
@@ -149,6 +150,7 @@ bool ProjectStorage::saveToFile(const QString &filePath,
   QList<MasterBlockElement *> blocks;
   QList<ConnectorElement *> connectors;
   QList<MaskElement *> masks;
+  QList<TextElement *> texts;
 
   for (ShapeElement *element : scene->allElements()) {
     if (!element)
@@ -159,6 +161,8 @@ bool ProjectStorage::saveToFile(const QString &filePath,
       connectors.append(c);
     } else if (auto *m = dynamic_cast<MaskElement *>(element)) {
       masks.append(m);
+    } else if (auto *t = dynamic_cast<TextElement *>(element)) {
+      texts.append(t);
     }
   }
 
@@ -168,6 +172,7 @@ bool ProjectStorage::saveToFile(const QString &filePath,
   std::sort(blocks.begin(), blocks.end(), sortById);
   std::sort(connectors.begin(), connectors.end(), sortById);
   std::sort(masks.begin(), masks.end(), sortById);
+  std::sort(texts.begin(), texts.end(), sortById);
 
   // 2. Секция блоков микрокоманд (<blocks>)
   QDomElement blocksNode = doc.createElement(QStringLiteral("blocks"));
@@ -339,6 +344,25 @@ bool ProjectStorage::saveToFile(const QString &filePath,
 
     masksNode.appendChild(mNode);
   }
+
+  QDomElement textsNode = doc.createElement(QStringLiteral("texts"));
+  textsNode.setAttribute(QStringLiteral("count"), QString::number(texts.size()));
+  pageNode.appendChild(textsNode);
+  for (TextElement *text : texts) {
+    QDomElement node = doc.createElement(QStringLiteral("text"));
+    node.setAttribute(QStringLiteral("id"), QString::number(text->id()));
+    node.setAttribute(QStringLiteral("name"), text->name());
+    node.setAttribute(QStringLiteral("uid"), text->uid().toString());
+    node.setAttribute(QStringLiteral("x"), QString::number(text->pos().x(), 'g', 17));
+    node.setAttribute(QStringLiteral("y"), QString::number(text->pos().y(), 'g', 17));
+    node.setAttribute(QStringLiteral("width"), QString::number(text->rect().width(), 'g', 17));
+    node.setAttribute(QStringLiteral("height"), QString::number(text->rect().height(), 'g', 17));
+    node.setAttribute(QStringLiteral("content"), text->text());
+    node.setAttribute(QStringLiteral("fontSize"), text->fontSize());
+    node.setAttribute(QStringLiteral("textColor"), text->textColor().name(QColor::HexArgb));
+    node.setAttribute(QStringLiteral("fontFamily"), text->fontFamily());
+    textsNode.appendChild(node);
+  }
   }
 
   QSaveFile file(filePath);
@@ -423,6 +447,31 @@ static bool readProject(const QString &filePath, QDomDocument &doc,
   }
 
   return true;
+}
+
+static TextElement *readTextElement(const QDomElement &node) {
+  const quint32 id = node.attribute(QStringLiteral("id"), QStringLiteral("1")).toUInt();
+  const QString name = node.attribute(QStringLiteral("name"), QStringLiteral("Текст %1").arg(id));
+  QUuid uid = QUuid::fromString(node.attribute(QStringLiteral("uid")));
+  if (uid.isNull())
+    uid = QUuid::createUuid();
+  auto *text = new TextElement(id, name, uid);
+  text->setPos(node.attribute(QStringLiteral("x"), QStringLiteral("0")).toDouble(),
+               node.attribute(QStringLiteral("y"), QStringLiteral("0")).toDouble());
+  text->setRect(QRectF(0, 0,
+      node.attribute(QStringLiteral("width"), QStringLiteral("120")).toDouble(),
+      node.attribute(QStringLiteral("height"), QStringLiteral("30")).toDouble()));
+  if (node.hasAttribute(QStringLiteral("content")))
+    text->setText(node.attribute(QStringLiteral("content")));
+  if (node.hasAttribute(QStringLiteral("fontSize")))
+    text->setFontSize(node.attribute(QStringLiteral("fontSize")).toInt());
+  if (node.hasAttribute(QStringLiteral("textColor")))
+    text->setTextColor(QColor(node.attribute(QStringLiteral("textColor"))));
+  if (node.hasAttribute(QStringLiteral("fontFamily")))
+    text->setFontFamily(node.attribute(QStringLiteral("fontFamily")));
+  if (node.hasAttribute(QStringLiteral("z")))
+    text->setZValue(node.attribute(QStringLiteral("z")).toDouble());
+  return text;
 }
 
 static bool loadPage(const QDomElement &root, CanvasScene *scene,
@@ -759,6 +808,11 @@ static bool loadPage(const QDomElement &root, CanvasScene *scene,
     }
   }
 
+  QDomElement textsNode = root.firstChildElement(QStringLiteral("texts"));
+  for (QDomElement node = textsNode.firstChildElement(QStringLiteral("text"));
+       !node.isNull(); node = node.nextSiblingElement(QStringLiteral("text")))
+    tempScene.addItem(readTextElement(node));
+
   // =========================================================================
   // Б. Обратная совместимость со старым форматом v1/v2 (<elements><element/>)
   // =========================================================================
@@ -793,7 +847,9 @@ static bool loadPage(const QDomElement &root, CanvasScene *scene,
     Qt::PenStyle strokeStyle =
         penStyleFromString(elemNode.attribute(QStringLiteral("strokeStyle")));
 
-    if (type == QStringLiteral("masterblock") ||
+    if (type == QStringLiteral("text")) {
+      tempScene.addItem(readTextElement(elemNode));
+    } else if (type == QStringLiteral("masterblock") ||
         type == QStringLiteral("rectangle")) {
       auto *block = new MasterBlockElement(id, name, uid);
       block->setPos(x, y);

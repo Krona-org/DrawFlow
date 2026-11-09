@@ -120,6 +120,17 @@ void ShapeCard::mouseMoveEvent(QMouseEvent *event) {
     f.setBold(true);
     p.setFont(f);
     p.drawText(r, Qt::AlignCenter, QStringLiteral("1111111XXX"));
+  } else if (type_ == ElementType::Text) {
+    // Отрисовка карточки текста 'T'
+    p.setPen(QPen(QColor(37, 99, 235), 1.5));
+    p.setBrush(QColor(241, 245, 249, 230));
+    QRectF r(6, 8, 48, 30);
+    p.drawRoundedRect(r, 4, 4);
+    QFont f(QStringLiteral("Segoe UI"));
+    f.setPixelSize(18);
+    f.setBold(true);
+    p.setFont(f);
+    p.drawText(r, Qt::AlignCenter, QStringLiteral("T"));
   } else {
     // Отрисовка ступени коннектора
     p.setPen(QPen(QColor(37, 99, 235), 2.0, Qt::SolidLine, Qt::RoundCap,
@@ -157,11 +168,14 @@ ElementsLibraryFrame::ElementsLibraryFrame(CanvasScene *scene, QWidget *parent)
                     QStringLiteral(":/connector.svg"), this);
   maskCard_ = new ShapeCard(ElementType::Mask, QStringLiteral("Mask"),
                             QStringLiteral(":/mask.svg"), this);
+  textCard_ = new ShapeCard(ElementType::Text, QStringLiteral("Текст"),
+                            QStringLiteral(":/text.svg"), this);
 
   // Вставляем карточки перед пружиной (verticalSpacer)
   ui->mainLayout->insertWidget(0, masterBlockCard_);
   ui->mainLayout->insertWidget(1, connectorCard_);
   ui->mainLayout->insertWidget(2, maskCard_);
+  ui->mainLayout->insertWidget(3, textCard_);
 
   auto handleCardClick = [this](ElementType t) {
     if (scene_->activeTool() == t) {
@@ -174,6 +188,7 @@ ElementsLibraryFrame::ElementsLibraryFrame(CanvasScene *scene, QWidget *parent)
   connect(masterBlockCard_, &ShapeCard::clicked, this, handleCardClick);
   connect(connectorCard_, &ShapeCard::clicked, this, handleCardClick);
   connect(maskCard_, &ShapeCard::clicked, this, handleCardClick);
+  connect(textCard_, &ShapeCard::clicked, this, handleCardClick);
 
   connect(scene_, &CanvasScene::activeToolChanged, this,
           &ElementsLibraryFrame::onToolChanged);
@@ -202,6 +217,8 @@ void ElementsLibraryFrame::onToolChanged(ElementType tool) {
     connectorCard_->setActive(tool == ElementType::Connector);
   if (maskCard_)
     maskCard_->setActive(tool == ElementType::Mask);
+  if (textCard_)
+    textCard_->setActive(tool == ElementType::Text);
 }
 
 } // namespace editor

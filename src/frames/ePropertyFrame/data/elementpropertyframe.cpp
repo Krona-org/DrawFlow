@@ -9,6 +9,7 @@
 #include "src/elements/maskElement/maskelement.h"
 #include "src/elements/masterBlockElement/k1804microcode.h"
 #include "src/elements/masterBlockElement/masterblockelement.h"
+#include "src/elements/textElement/textelement.h"
 
 #include <QColorDialog>
 #include <QDoubleSpinBox>
@@ -161,6 +162,12 @@ void ElementPropertyFrame::buildInspectorUi() {
   editMaskText_->setToolTip(
       QStringLiteral("Текст битовой маски на схеме (например, 1111111XXX)"));
   formConnId->addRow(lblMaskText_, editMaskText_);
+
+  lblContentText_ = new QLabel(QStringLiteral("Текст:"), groupConnIdentity_);
+  editContentText_ = new QLineEdit(groupConnIdentity_);
+  editContentText_->setToolTip(
+      QStringLiteral("Текст надписи на холсте"));
+  formConnId->addRow(lblContentText_, editContentText_);
 
   vbox->addWidget(groupConnIdentity_);
 
@@ -363,6 +370,15 @@ void ElementPropertyFrame::buildInspectorUi() {
             }
           });
 
+  connect(editContentText_, &QLineEdit::textEdited, this,
+          [this](const QString &text) {
+            if (auto *txt = dynamic_cast<TextElement *>(currentElement_)) {
+              if (!isUpdating_) {
+                txt->setText(text);
+              }
+            }
+          });
+
   connect(editM1Oct_, &QLineEdit::editingFinished, this,
           &ElementPropertyFrame::onBlockMFieldEdited);
   connect(editM15Oct_, &QLineEdit::editingFinished, this,
@@ -511,6 +527,8 @@ void ElementPropertyFrame::updateProperties() {
     groupConnIdentity_->show();
     lblMaskText_->hide();
     editMaskText_->hide();
+    lblContentText_->hide();
+    editContentText_->hide();
 
     editConnName_->setText(conn->name());
   } else if (auto *mask = dynamic_cast<MaskElement *>(currentElement_)) {
@@ -520,9 +538,23 @@ void ElementPropertyFrame::updateProperties() {
     groupConnIdentity_->show();
     lblMaskText_->show();
     editMaskText_->show();
+    lblContentText_->hide();
+    editContentText_->hide();
 
     editConnName_->setText(mask->name());
     editMaskText_->setText(mask->maskText());
+  } else if (auto *txt = dynamic_cast<TextElement *>(currentElement_)) {
+    groupBlockIdentity_->hide();
+    groupMicrocode_->hide();
+    groupConnIdentity_->setTitle(QStringLiteral("Текст / Надпись"));
+    groupConnIdentity_->show();
+    lblMaskText_->hide();
+    editMaskText_->hide();
+    lblContentText_->show();
+    editContentText_->show();
+
+    editConnName_->setText(txt->name());
+    editContentText_->setText(txt->text());
   }
 
   isUpdating_ = false;

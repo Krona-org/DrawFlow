@@ -62,11 +62,13 @@ private:
   QLineEdit *editAddressOct_ = nullptr;
   QLabel *lblAddressDec_ = nullptr;
 
-  // 2. Идентификация коннектора / маски
+  // 2. Идентификация коннектора / маски / текста
   QGroupBox *groupConnIdentity_ = nullptr;
   QLineEdit *editConnName_ = nullptr;
   QLabel *lblMaskText_ = nullptr;
   QLineEdit *editMaskText_ = nullptr;
+  QLabel *lblContentText_ = nullptr;
+  QLineEdit *editContentText_ = nullptr;
 
   // 3. Микрокоманда M1..M15 (редактирование прямо в панели Свойства)
   QGroupBox *groupMicrocode_ = nullptr;

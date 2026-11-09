@@ -178,6 +178,8 @@ void CanvasView::dropEvent(QDropEvent *event) {
             scene_->addElementAt(ElementType::Connector, scenePos);
         } else if (typeStr == QStringLiteral("mask")) {
             scene_->addElementAt(ElementType::Mask, scenePos);
+        } else if (typeStr == QStringLiteral("text")) {
+            scene_->addElementAt(ElementType::Text, scenePos);
         }
 
         event->acceptProposedAction();

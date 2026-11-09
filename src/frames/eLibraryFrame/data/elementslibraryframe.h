@@ -59,6 +59,7 @@ private:
     ShapeCard *masterBlockCard_ = nullptr;
     ShapeCard *connectorCard_ = nullptr;
     ShapeCard *maskCard_ = nullptr;
+    ShapeCard *textCard_ = nullptr;
 };
 
 } // namespace editor

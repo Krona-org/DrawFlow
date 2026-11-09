@@ -41,6 +41,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/elements/connectorElement
     ${CMAKE_CURRENT_SOURCE_DIR}/src/elements/masterBlockElement
     ${CMAKE_CURRENT_SOURCE_DIR}/src/elements/maskElement
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/elements/textElement
 )
 
 set(SOURCES
@@ -58,6 +59,8 @@ set(SOURCES
     src/elements/connectorElement/connectorelement.cpp
     src/elements/maskElement/maskelement.h
     src/elements/maskElement/maskelement.cpp
+    src/elements/textElement/textelement.h
+    src/elements/textElement/textelement.cpp
 
     src/canvas/canvasscene.h
     src/canvas/canvasscene.cpp
@@ -135,6 +138,8 @@ set(TEST_SOURCES
     src/elements/connectorElement/connectorelement.cpp
     src/elements/maskElement/maskelement.h
     src/elements/maskElement/maskelement.cpp
+    src/elements/textElement/textelement.h
+    src/elements/textElement/textelement.cpp
 
     src/canvas/canvasscene.h
     src/canvas/canvasscene.cpp

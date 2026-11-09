@@ -8,7 +8,8 @@ enum class ElementType {
     None = 0,
     MasterBlock,
     Connector,
-    Mask
+    Mask,
+    Text
 };
 
 inline QString elementTypeName(ElementType type) {
@@ -19,6 +20,8 @@ inline QString elementTypeName(ElementType type) {
         return QStringLiteral("Connector");
     case ElementType::Mask:
         return QStringLiteral("Mask");
+    case ElementType::Text:
+        return QStringLiteral("Текст");
     default:
         return QStringLiteral("Неизвестно");
     }
