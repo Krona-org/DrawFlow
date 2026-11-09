@@ -29,10 +29,15 @@ void UpdateManager::reportError(const QString &message, bool silent)
 void UpdateManager::checkForUpdates(bool silent)
 {
     if (m_checkReply) {
-        if (!silent) {
-            m_silentCheck = false;
+        if (silent) {
+            return;
         }
-        return;
+        QNetworkReply *old = m_checkReply;
+        m_checkReply = nullptr;
+        old->disconnect(this);
+        old->abort();
+        old->deleteLater();
+        m_busy = false;
     }
     if (m_busy) {
         if (!silent)
@@ -45,6 +50,7 @@ void UpdateManager::checkForUpdates(bool silent)
                                  + QStringLiteral("/releases/latest"))};
     request.setRawHeader("User-Agent", "DrawFlow-update-checker");
     request.setRawHeader("Accept", "application/vnd.github+json");
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
     request.setTransferTimeout(15000);
     auto *reply = m_network.get(request);
     m_checkReply = reply;
@@ -131,6 +137,7 @@ void UpdateManager::downloadAndInstallUpdate(const QUrl &assetUrl)
     QNetworkRequest request(assetUrl);
     request.setRawHeader("User-Agent", "DrawFlow-update-checker");
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
     request.setTransferTimeout(60000);
     auto *reply = m_network.get(request);
     auto writeFailed = std::make_shared<bool>(false);
