@@ -2,6 +2,8 @@
 
 #include "src/elements/shapeElement/shapeelement.h"
 
+class QGraphicsTextItem;
+
 namespace editor {
 
 class TextElement : public ShapeElement {
@@ -28,14 +30,28 @@ public:
     QString fontFamily() const { return fontFamily_; }
     void setFontFamily(const QString &family);
 
+    void startEditing(bool selectAll = false);
+    void finishEditing();
+    bool isEditing() const { return isEditing_; }
+
+    void moveHandle(ResizeHandle handle, const QPointF &currentScenePos,
+                    bool snapToGrid = false, qreal gridSize = 20.0) override;
+
 protected:
     void drawShape(QPainter *painter) override;
+    QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
 
 private:
+    void syncTextItemStyle();
+    void adjustHeightToDocument();
+
     QString text_ = QStringLiteral("Текст");
     int fontSize_ = 12;
     QColor textColor_ = Qt::black;
     QString fontFamily_;
+    QGraphicsTextItem *textItem_ = nullptr;
+    bool isEditing_ = false;
+    bool updatingText_ = false;
 };
 
 } // namespace editor

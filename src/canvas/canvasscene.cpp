@@ -894,6 +894,12 @@ ShapeElement *CanvasScene::addElementAt(ElementType type,
 }
 
 void CanvasScene::deleteSelectedElements() {
+  if (QGraphicsItem *fi = focusItem()) {
+    if (auto te = dynamic_cast<TextElement *>(fi->parentItem())) {
+      if (te->isEditing())
+        return;
+    }
+  }
   const auto sel = selectedItems();
   QList<ShapeElement *> toDelete;
   for (QGraphicsItem *item : sel) {
@@ -1484,7 +1490,17 @@ void CanvasScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
 void CanvasScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) {
   if (event->button() == Qt::LeftButton) {
     QGraphicsItem *clickedItem = itemAt(event->scenePos(), QTransform());
-    if (auto block = dynamic_cast<MasterBlockElement *>(clickedItem)) {
+    TextElement *textElem = dynamic_cast<TextElement *>(clickedItem);
+    if (!textElem && clickedItem) {
+      textElem = dynamic_cast<TextElement *>(clickedItem->parentItem());
+    }
+    if (textElem) {
+      clearSelection();
+      textElem->setSelected(true);
+      textElem->startEditing(false);
+      event->accept();
+      return;
+    } else if (auto block = dynamic_cast<MasterBlockElement *>(clickedItem)) {
       clearSelection();
       block->setSelected(true);
       openBlockParamsDialog(block);
@@ -1513,6 +1529,26 @@ void CanvasScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) {
 }
 
 void CanvasScene::keyPressEvent(QKeyEvent *event) {
+  if (QGraphicsItem *fi = focusItem()) {
+    if (auto editingText = dynamic_cast<TextElement *>(fi->parentItem())) {
+      if (editingText->isEditing()) {
+        if (event->key() == Qt::Key_Escape) {
+          editingText->finishEditing();
+          event->accept();
+          return;
+        }
+        QGraphicsScene::keyPressEvent(event);
+        return;
+      }
+    }
+  }
+  if (event->key() == Qt::Key_F2) {
+    if (auto textElem = dynamic_cast<TextElement *>(selectedElement())) {
+      textElem->startEditing(true);
+      event->accept();
+      return;
+    }
+  }
   if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
     if (auto block = dynamic_cast<MasterBlockElement *>(selectedElement())) {
       openBlockParamsDialog(block);

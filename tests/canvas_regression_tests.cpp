@@ -1,6 +1,10 @@
 #include "src/canvas/canvasscene.h"
 #include "src/canvas/undocommands.h"
 #include "src/themes/canvascolors.h"
+#include "src/elements/textElement/textelement.h"
+#include <QGraphicsTextItem>
+#include <QTextDocument>
+#include <QTextOption>
 #include <QApplication>
 #include <QDebug>
 #include <QImage>
@@ -94,5 +98,32 @@ int main(int argc, char **argv) {
     CHECK(canvasConnectorColor(QColor(123, 45, 67)) == QColor(123, 45, 67));
     CHECK(themeMask->fillColor() == originalFill);
     app.setProperty("drawflowDarkTheme", false);
+
+    CanvasScene textScene;
+    textScene.setSnapToGrid(false);
+    auto *text = new TextElement(1, QStringLiteral("text"), QUuid::createUuid());
+    textScene.addItem(text);
+    auto *child = text->childItems().isEmpty() ? nullptr :
+        dynamic_cast<QGraphicsTextItem *>(text->childItems().first());
+    CHECK(child && child->parentItem() == text);
+    CHECK(child->document()->defaultTextOption().wrapMode() == QTextOption::WrapAtWordBoundaryOrAnywhere);
+    int changes = 0;
+    QObject::connect(text, &TextElement::propertyChanged, [&] { ++changes; });
+    text->setRect(QRectF(0, 0, 60, 20));
+    text->setText(QString(100, QLatin1Char('x')));
+    CHECK(text->rect().height() > 30);
+    CHECK(changes == 1);
+    child->setPlainText(QStringLiteral("edited"));
+    CHECK(text->text() == QStringLiteral("edited") && changes == 2);
+    text->startEditing(true);
+    CHECK(text->isEditing() && child->textInteractionFlags() == Qt::TextEditorInteraction);
+    text->finishEditing();
+    CHECK(!text->isEditing() && child->textInteractionFlags() == Qt::NoTextInteraction);
+    text->setRect(QRectF(0, 0, 120, 50));
+    text->setPos(100, 100);
+    text->startHandleDrag(ResizeHandle::TopLeft, QPointF(100, 100));
+    text->moveHandle(ResizeHandle::TopLeft, QPointF(80, 90));
+    CHECK(text->pos() == QPointF(80, 90));
+    CHECK(text->rect() == QRectF(0, 0, 140, 60));
     return 0;
 }
