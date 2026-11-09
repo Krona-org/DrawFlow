@@ -2,6 +2,7 @@
 #include "src/elements/masterBlockElement/k1804microcode.h"
 #include "src/widgets/smoothscrollarea.h"
 
+#include <QApplication>
 #include <QFont>
 #include <QFrame>
 #include <QGridLayout>
@@ -42,12 +43,13 @@ protected:
 
     // Фон мини-холста с тонкой сеткой
     const QRectF canvasRect(1, 1, width() - 2, height() - 2);
-    p.setPen(QPen(QColor(190, 197, 205), 1));
-    p.setBrush(QColor(232, 235, 239));
+    const bool darkTheme = qApp && qApp->property("drawflowDarkTheme").toBool();
+    p.setPen(QPen(darkTheme ? QColor(104, 104, 104) : QColor(203, 213, 225), 1));
+    p.setBrush(darkTheme ? QColor(76, 76, 76) : QColor(241, 245, 249));
     p.drawRoundedRect(canvasRect, 8, 8);
 
-    // Цвет сетки согласован с цветом сетки холста (QColor(212, 217, 223))
-    p.setPen(QPen(QColor(212, 217, 223), 1));
+    // Цвет сетки согласован с цветом сетки холста (QColor(195, 205, 218))
+    p.setPen(QPen(darkTheme ? QColor(104, 104, 104) : QColor(195, 205, 218), 1));
     for (int x = 16; x < width() - 4; x += 16) {
       p.drawLine(x, 2, x, height() - 3);
     }
@@ -57,8 +59,8 @@ protected:
 
     // Основной прямоугольник MasterBlock
     const QRectF blockRect(26, 26, width() - 52, height() - 40);
-    p.setPen(QPen(QColor(15, 23, 42), 1.8));
-    p.setBrush(QColor(242, 244, 247));
+    p.setPen(QPen(QColor(51, 65, 85), 1.8));
+    p.setBrush(darkTheme ? QColor(190, 190, 190) : QColor(248, 250, 252));
     p.drawRect(blockRect);
 
     // Верхние плашки: слева — шаг/метка, справа — восьмеричный адрес МК
@@ -66,8 +68,8 @@ protected:
     const QRectF rightBadge(blockRect.right() - 62, blockRect.top() - 10, 52,
                             20);
 
-    p.setPen(QPen(QColor(15, 23, 42), 1.6));
-    p.setBrush(QColor(242, 244, 247));
+    p.setPen(QPen(QColor(51, 65, 85), 1.6));
+    p.setBrush(darkTheme ? QColor(190, 190, 190) : QColor(248, 250, 252));
     p.drawRect(leftBadge);
     p.drawRect(rightBadge);
 

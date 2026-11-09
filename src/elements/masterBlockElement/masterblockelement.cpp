@@ -1,5 +1,6 @@
 #include "masterblockelement.h"
 #include "src/canvas/canvasscene.h"
+#include "src/themes/canvascolors.h"
 #include "src/elements/masterBlockElement/k1804microcode.h"
 
 #include <QCursor>
@@ -310,7 +311,7 @@ void MasterBlockElement::drawShape(QPainter *painter) {
   QPen mainPen(borderColor_, borderWidth_, borderStyle_, Qt::SquareCap,
                Qt::MiterJoin);
   painter->setPen(mainPen);
-  painter->setBrush(fillColor_);
+  painter->setBrush(canvasFillColor(fillColor_));
 
   // 1. Отрисовка основного прямоугольника
   painter->drawRect(rect_);

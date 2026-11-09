@@ -1,7 +1,10 @@
 #ifndef THEMEMANAGER_H
 #define THEMEMANAGER_H
 
+#include <QAction>
 #include <QApplication>
+#include <QPainter>
+#include <QToolBar>
 #include <QColor>
 #include <QFile>
 #include <QList>
@@ -13,14 +16,23 @@
 
 namespace editor {
 
-enum class Theme { Light };
+enum class Theme { Light, Dark };
 
 class ThemeManager {
 public:
   static void apply(QWidget *root, Theme theme = Theme::Light) {
+    QFile lightFile(":/themes/light.qss");
+    if (!lightFile.open(QIODevice::ReadOnly | QIODevice::Text)) return;
+    QString qss = QString::fromUtf8(lightFile.readAll());
+    if (theme == Theme::Dark) {
+      QFile darkFile(":/themes/dark.qss");
+      if (!darkFile.open(QIODevice::ReadOnly | QIODevice::Text)) return;
+      qss += QLatin1Char('\n') + QString::fromUtf8(darkFile.readAll());
+    }
+
     QApplication::setStyle(QStyleFactory::create("Fusion"));
 
-    QPalette pal = QApplication::palette();
+    QPalette pal = QApplication::style()->standardPalette();
     pal.setColor(QPalette::Window, QColor("#E5E9F0"));
     pal.setColor(QPalette::WindowText, QColor("#1E242B"));
     pal.setColor(QPalette::Base, QColor("#F4F6F9"));
@@ -33,26 +45,44 @@ public:
     pal.setColor(QPalette::BrightText, QColor("#FFFFFF"));
     pal.setColor(QPalette::Highlight, QColor("#3B82F6"));
     pal.setColor(QPalette::HighlightedText, QColor("#FFFFFF"));
-    QApplication::setPalette(pal);
-
-    clearInlineStyles(root);
-    enableStyledBackground(root);
-
-    QString path;
-    switch (theme) {
-    case Theme::Light:
-    default:
-      path = ":/themes/light.qss";
-      break;
+    if (theme == Theme::Dark) {
+      pal.setColor(QPalette::Window, QColor("#1b2028"));
+      pal.setColor(QPalette::WindowText, QColor("#dbe2ec"));
+      pal.setColor(QPalette::Base, QColor("#171d25"));
+      pal.setColor(QPalette::AlternateBase, QColor("#252e3a"));
+      pal.setColor(QPalette::Text, QColor("#e2e8f0"));
+      pal.setColor(QPalette::Button, QColor("#344253"));
+      pal.setColor(QPalette::ButtonText, QColor("#e2e8f0"));
+      pal.setColor(QPalette::Highlight, QColor("#42648b"));
+      pal.setColor(QPalette::Disabled, QPalette::Text, QColor("#8894a3"));
+      pal.setColor(QPalette::Disabled, QPalette::WindowText, QColor("#8894a3"));
+      pal.setColor(QPalette::Disabled, QPalette::ButtonText, QColor("#8894a3"));
     }
+    QApplication::setPalette(pal);
+    qApp->setProperty("drawflowDarkTheme", theme == Theme::Dark);
 
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly | QIODevice::Text))
-      return;
-
-    QTextStream in(&f);
-    const QString qss = in.readAll();
+    enableStyledBackground(root);
     qApp->setStyleSheet(qss);
+    if (root) {
+      for (QToolBar *toolbar : root->findChildren<QToolBar *>()) {
+        for (QAction *action : toolbar->actions()) {
+          if (!action->property("drawflowOriginalIcon").isValid() && !action->icon().isNull())
+            action->setProperty("drawflowOriginalIcon", QVariant::fromValue(action->icon()));
+          const QIcon original = action->property("drawflowOriginalIcon").value<QIcon>();
+          if (original.isNull()) continue;
+          if (theme == Theme::Light) {
+            action->setIcon(original);
+          } else {
+            QPixmap pixmap = original.pixmap(64, 64);
+            QPainter painter(&pixmap);
+            painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+            painter.fillRect(pixmap.rect(), QColor("#cbd5e1"));
+            painter.end();
+            action->setIcon(QIcon(pixmap));
+          }
+        }
+      }
+    }
   }
 
   static void refreshWidgetStyle(QWidget *w) {
@@ -64,16 +94,6 @@ public:
   }
 
 private:
-  static void clearInlineStyles(QWidget *root) {
-    if (!root)
-      return;
-    root->setStyleSheet(QString());
-    const auto children = root->findChildren<QWidget *>();
-    for (QWidget *w : children) {
-      w->setStyleSheet(QString());
-    }
-  }
-
   static void enableStyledBackground(QWidget *root) {
     if (!root)
       return;

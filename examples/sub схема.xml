@@ -1,0 +1,155 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<k1804project name="Схема 1" version="3.0">
+    <pages>
+        <page name="Страница 1">
+            <canvas gridSize="20" pageFormat="Infinite" showGrid="true" snapToGrid="true" />
+            <blocks count="11">
+                <block addressDec="1" addressOct="001" id="1" name="MasterBlock 1" step="1" uid="{51231be0-0e0a-4e30-9103-e71b4937571a}">
+                    <geometry height="110" width="180" x="-120" y="-240" z="0" />
+                    <style fill="#f2f4f7" stroke="#18181b" strokeStyle="SolidLine" strokeWidth="1.5" />
+                    <microcode M1="0" M10="0" M11="1" M12="0" M13="0" M14="2" M15="0" M2="0" M3="0" M4="14" M5="7" M6="7" M7="0" M8="0" M9="4" />
+                    <displayLines>
+                        <line index="0">RDI --&gt; D</line>
+                        <line index="1">0 + R 7</line>
+                        <line index="2">PSW &lt;-- PSW</line>
+                        <line index="3">Y --&gt; MAR</line>
+                        <line index="4">CONT; TST = PSW[0]</line>
+                        <line index="5">M1: 0; M15: 0</line>
+                    </displayLines>
+                </block>
+                <block addressDec="2" addressOct="002" id="2" name="MasterBlock 2" step="2" uid="{4e77c247-545e-43dc-86ed-8b6d2c36e83e}">
+                    <geometry height="110" width="180" x="-120" y="-100" z="0" />
+                    <style fill="#f2f4f7" stroke="#18181b" strokeStyle="SolidLine" strokeWidth="1.5" />
+                    <microcode M1="2" M10="0" M11="3" M12="2" M13="0" M14="0" M15="0" M2="0" M3="0" M4="14" M5="7" M6="7" M7="0" M8="0" M9="5" />
+                    <displayLines>
+                        <line index="0">M1 --&gt; D</line>
+                        <line index="1">R 7 &lt;-- D + R 7</line>
+                        <line index="2">PSW &lt;-- PSW</line>
+                        <line index="3">NOP</line>
+                        <line index="4">CONT; TST = PSW[0]</line>
+                        <line index="5">M1: 2; M15: 0</line>
+                    </displayLines>
+                </block>
+                <block addressDec="3" addressOct="003" id="3" name="MasterBlock 3" step="3" uid="{e874ba56-2718-4a73-89c5-e7c5f4351a93}">
+                    <geometry height="110" width="180" x="-120" y="40" z="0" />
+                    <style fill="#f2f4f7" stroke="#18181b" strokeStyle="SolidLine" strokeWidth="1.5" />
+                    <microcode M1="0" M10="0" M11="1" M12="0" M13="0" M14="0" M15="0" M2="0" M3="0" M4="14" M5="0" M6="0" M7="0" M8="0" M9="4" />
+                    <displayLines>
+                        <line index="0">RDI --&gt; D</line>
+                        <line index="1">0 + R 0</line>
+                        <line index="2">PSW &lt;-- PSW</line>
+                        <line index="3">NOP</line>
+                        <line index="4">CONT; TST = PSW[0]</line>
+                        <line index="5">M1: 0; M15: 0</line>
+                    </displayLines>
+                </block>
+                <block addressDec="4" addressOct="004" id="4" name="MasterBlock 4" step="4" uid="{0b28177c-e72b-4ec7-86c1-0d76f705ce68}">
+                    <geometry height="110" width="180" x="-120" y="180" z="0" />
+                    <style fill="#f2f4f7" stroke="#18181b" strokeStyle="SolidLine" strokeWidth="1.5" />
+                    <microcode M1="2" M10="1" M11="3" M12="2" M13="0" M14="2" M15="0" M2="0" M3="0" M4="14" M5="2" M6="2" M7="0" M8="1" M9="5" />
+                    <displayLines>
+                        <line index="0">M1 --&gt; D</line>
+                        <line index="1">R 2 &lt;-- R 2 - D - 1</line>
+                        <line index="2">PSW &lt;-- PSW</line>
+                        <line index="3">Y --&gt; MAR</line>
+                        <line index="4">CONT; TST = PSW[0]</line>
+                        <line index="5">M1: 2; M15: 0</line>
+                    </displayLines>
+                </block>
+                <block addressDec="5" addressOct="005" id="5" name="MasterBlock 5" step="5" uid="{411ca631-4306-4e52-82ea-da7ad4a64a01}">
+                    <geometry height="110" width="180" x="-120" y="320" z="0" />
+                    <style fill="#f2f4f7" stroke="#18181b" strokeStyle="SolidLine" strokeWidth="1.5" />
+                    <microcode M1="0" M10="0" M11="3" M12="0" M13="0" M14="0" M15="0" M2="0" M3="0" M4="14" M5="0" M6="8" M7="0" M8="0" M9="7" />
+                    <displayLines>
+                        <line index="0">RDI --&gt; D</line>
+                        <line index="1">R 8 &lt;-- D + 0</line>
+                        <line index="2">PSW &lt;-- PSW</line>
+                        <line index="3">NOP</line>
+                        <line index="4">CONT; TST = PSW[0]</line>
+                        <line index="5">M1: 0; M15: 0</line>
+                    </displayLines>
+                </block>
+                <block addressDec="6" addressOct="006" id="6" name="MasterBlock 6" step="6" uid="{e0a96757-1791-4b57-9fb8-f04473d7ff39}">
+                    <geometry height="110" width="180" x="-120" y="460" z="0" />
+                    <style fill="#f2f4f7" stroke="#18181b" strokeStyle="SolidLine" strokeWidth="1.5" />
+                    <microcode M1="0" M10="0" M11="1" M12="0" M13="0" M14="2" M15="0" M2="0" M3="0" M4="14" M5="7" M6="7" M7="0" M8="0" M9="4" />
+                    <displayLines>
+                        <line index="0">RDI --&gt; D</line>
+                        <line index="1">0 + R 7</line>
+                        <line index="2">PSW &lt;-- PSW</line>
+                        <line index="3">Y --&gt; MAR</line>
+                        <line index="4">CONT; TST = PSW[0]</line>
+                        <line index="5">M1: 0; M15: 0</line>
+                    </displayLines>
+                </block>
+                <block addressDec="7" addressOct="007" id="7" name="MasterBlock 7" step="7" uid="{3d9ea525-d2fc-4017-9b25-bd796ff5d3a9}">
+                    <geometry height="110" width="180" x="-120" y="600" z="0" />
+                    <style fill="#f2f4f7" stroke="#18181b" strokeStyle="SolidLine" strokeWidth="1.5" />
+                    <microcode M1="2" M10="0" M11="3" M12="2" M13="0" M14="0" M15="0" M2="0" M3="0" M4="14" M5="7" M6="7" M7="0" M8="0" M9="5" />
+                    <displayLines>
+                        <line index="0">M1 --&gt; D</line>
+                        <line index="1">R 7 &lt;-- D + R 7</line>
+                        <line index="2">PSW &lt;-- PSW</line>
+                        <line index="3">NOP</line>
+                        <line index="4">CONT; TST = PSW[0]</line>
+                        <line index="5">M1: 2; M15: 0</line>
+                    </displayLines>
+                </block>
+                <block addressDec="8" addressOct="010" id="8" name="MasterBlock 8" step="8" uid="{4562bbe2-56be-4582-b2a1-1f5081d3b588}">
+                    <geometry height="110" width="180" x="-120" y="740" z="0" />
+                    <style fill="#f2f4f7" stroke="#18181b" strokeStyle="SolidLine" strokeWidth="1.5" />
+                    <microcode M1="0" M10="0" M11="1" M12="0" M13="0" M14="2" M15="0" M2="0" M3="0" M4="14" M5="4" M6="4" M7="0" M8="0" M9="5" />
+                    <displayLines>
+                        <line index="0">RDI --&gt; D</line>
+                        <line index="1">D + R 4</line>
+                        <line index="2">PSW &lt;-- PSW</line>
+                        <line index="3">Y --&gt; MAR</line>
+                        <line index="4">CONT; TST = PSW[0]</line>
+                        <line index="5">M1: 0; M15: 0</line>
+                    </displayLines>
+                </block>
+                <block addressDec="9" addressOct="011" id="9" name="MasterBlock 9" step="9" uid="{3d091940-9cac-4e1b-85f4-caf58f6d9938}">
+                    <geometry height="110" width="180" x="-120" y="880" z="0" />
+                    <style fill="#f2f4f7" stroke="#18181b" strokeStyle="SolidLine" strokeWidth="1.5" />
+                    <microcode M1="0" M10="0" M11="3" M12="0" M13="0" M14="0" M15="0" M2="0" M3="0" M4="14" M5="0" M6="9" M7="0" M8="0" M9="7" />
+                    <displayLines>
+                        <line index="0">RDI --&gt; D</line>
+                        <line index="1">R 9 &lt;-- D + 0</line>
+                        <line index="2">PSW &lt;-- PSW</line>
+                        <line index="3">NOP</line>
+                        <line index="4">CONT; TST = PSW[0]</line>
+                        <line index="5">M1: 0; M15: 0</line>
+                    </displayLines>
+                </block>
+                <block addressDec="10" addressOct="012" id="10" name="MasterBlock 10" step="10" uid="{eba20fab-06ff-4f8f-9837-f45546976b81}">
+                    <geometry height="110" width="180" x="-120" y="1020" z="0" />
+                    <style fill="#f2f4f7" stroke="#18181b" strokeStyle="SolidLine" strokeWidth="1.5" />
+                    <microcode M1="0" M10="1" M11="3" M12="0" M13="1" M14="1" M15="0" M2="0" M3="0" M4="14" M5="8" M6="9" M7="0" M8="1" M9="1" />
+                    <displayLines>
+                        <line index="0">RDI --&gt; D</line>
+                        <line index="1">R 9 &lt;-- R 9 - R 8 - 1</line>
+                        <line index="2">PSW &lt;-- C16, OVR, Z, F15</line>
+                        <line index="3">Y --&gt; RD0</line>
+                        <line index="4">CONT; TST = PSW[0]</line>
+                        <line index="5">M1: 0; M15: 0</line>
+                    </displayLines>
+                </block>
+                <block addressDec="11" addressOct="013" id="11" name="MasterBlock 11" step="11" uid="{cd310c6a-35df-4b39-a8b9-dcd49b3fe62c}">
+                    <geometry height="110" width="180" x="-120" y="1160" z="0" />
+                    <style fill="#f2f4f7" stroke="#18181b" strokeStyle="SolidLine" strokeWidth="1.5" />
+                    <microcode M1="11" M10="0" M11="1" M12="0" M13="0" M14="0" M15="0" M2="0" M3="0" M4="15" M5="0" M6="0" M7="0" M8="0" M9="0" />
+                    <displayLines>
+                        <line index="0">RDI --&gt; D</line>
+                        <line index="1">R 0 + Q</line>
+                        <line index="2">PSW &lt;-- PSW</line>
+                        <line index="3">NOP</line>
+                        <line index="4">JP; TST = PSW[0]</line>
+                        <line index="5">M1: 13; M15: 0</line>
+                    </displayLines>
+                </block>
+            </blocks>
+            <connectors count="0" />
+            <masks count="0" />
+        </page>
+    </pages>
+</k1804project>

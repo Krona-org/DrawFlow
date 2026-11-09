@@ -18,6 +18,8 @@
 #include <QLabel>
 #include <QMessageBox>
 #include <QPalette>
+#include <QSettings>
+#include <QMenu>
 #include <QToolButton>
 
 namespace editor {
@@ -202,10 +204,40 @@ void MainWindow::updateWindowTitle() {
 }
 
 void MainWindow::applyStrictMinimalistTheme() {
-  ThemeManager::apply(this, Theme::Light);
+  const bool dark = QSettings().value(QStringLiteral("appearance/theme"),
+                                       QStringLiteral("light")).toString() == QStringLiteral("dark");
+  ThemeManager::apply(this, dark ? Theme::Dark : Theme::Light);
 }
 
 void MainWindow::setupUiConnections() {
+  auto *themeMenu = ui->menuView->addMenu(QStringLiteral("Тема"));
+  themeMenu->setObjectName(QStringLiteral("themeMenu"));
+  auto *themeGroup = new QActionGroup(this);
+  themeGroup->setExclusive(true);
+  auto *lightAction = themeMenu->addAction(QStringLiteral("Светлая"));
+  auto *darkAction = themeMenu->addAction(QStringLiteral("Тёмная"));
+  lightAction->setObjectName(QStringLiteral("actionThemeLight"));
+  darkAction->setObjectName(QStringLiteral("actionThemeDark"));
+  lightAction->setCheckable(true);
+  darkAction->setCheckable(true);
+  themeGroup->addAction(lightAction);
+  themeGroup->addAction(darkAction);
+  const bool dark = QSettings().value(QStringLiteral("appearance/theme"),
+                                       QStringLiteral("light")).toString() == QStringLiteral("dark");
+  (dark ? darkAction : lightAction)->setChecked(true);
+  auto setTheme = [this](bool darkTheme) {
+    QSettings().setValue(QStringLiteral("appearance/theme"),
+                         darkTheme ? QStringLiteral("dark") : QStringLiteral("light"));
+    ThemeManager::apply(this, darkTheme ? Theme::Dark : Theme::Light);
+    for (const auto &page : pages_) {
+      if (!page.scene) continue;
+      for (QGraphicsItem *item : page.scene->items()) item->update();
+      page.scene->update();
+    }
+  };
+  connect(lightAction, &QAction::triggered, this, [setTheme] { setTheme(false); });
+  connect(darkAction, &QAction::triggered, this, [setTheme] { setTheme(true); });
+
   ui->mainToolBar->setToolButtonStyle(Qt::ToolButtonIconOnly);
 
   // Файл

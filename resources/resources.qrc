@@ -30,5 +30,6 @@
         <file>lock.svg</file>
         <file>lock-open.svg</file>
         <file alias="themes/light.qss">../src/themes/light.qss</file>
+        <file alias="themes/dark.qss">../src/themes/dark.qss</file>
     </qresource>
 </RCC>

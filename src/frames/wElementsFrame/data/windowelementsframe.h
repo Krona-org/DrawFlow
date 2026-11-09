@@ -33,7 +33,9 @@ private slots:
     void onItemChanged(QTreeWidgetItem *item, int column);
 
 private:
+    void scheduleRefresh();
     Ui::WindowElementsFrame *ui = nullptr;
+    bool refreshPending_ = false;
     CanvasScene *scene_ = nullptr;
     bool isUpdatingSelection_ = false;
 };

@@ -24,10 +24,13 @@ WindowElementsFrame::WindowElementsFrame(CanvasScene *scene, QWidget *parent)
     connect(ui->treeWidget, &QTreeWidget::itemClicked, this, &WindowElementsFrame::onItemClicked);
     connect(ui->treeWidget, &QTreeWidget::itemChanged, this, &WindowElementsFrame::onItemChanged);
 
-    connect(scene_, &CanvasScene::elementAdded, this, &WindowElementsFrame::refreshElementsList);
-    connect(scene_, &CanvasScene::elementRemoved, this, &WindowElementsFrame::refreshElementsList);
-    connect(scene_, &CanvasScene::sceneCleared, this, &WindowElementsFrame::refreshElementsList);
+    connect(scene_, &CanvasScene::elementAdded, this, &WindowElementsFrame::scheduleRefresh);
+    connect(scene_, &CanvasScene::elementRemoved, this, &WindowElementsFrame::scheduleRefresh);
+    connect(scene_, &CanvasScene::sceneCleared, this, &WindowElementsFrame::scheduleRefresh);
     connect(scene_, &CanvasScene::sceneSelectionChanged, this, &WindowElementsFrame::onSceneSelectionChanged);
+    connect(scene_, &CanvasScene::selectionBatchFinished, this, [this] {
+        if (refreshPending_) { refreshPending_ = false; refreshElementsList(); }
+    });
     connect(scene_, &QObject::destroyed, this, [this] {
         scene_ = nullptr;
         refreshElementsList();
@@ -47,15 +50,27 @@ void WindowElementsFrame::setScene(CanvasScene *scene) {
         }
         scene_ = scene;
         if (scene_) {
-            connect(scene_, &CanvasScene::elementAdded, this, &WindowElementsFrame::refreshElementsList);
-            connect(scene_, &CanvasScene::elementRemoved, this, &WindowElementsFrame::refreshElementsList);
-            connect(scene_, &CanvasScene::sceneCleared, this, &WindowElementsFrame::refreshElementsList);
+            connect(scene_, &CanvasScene::elementAdded, this, &WindowElementsFrame::scheduleRefresh);
+            connect(scene_, &CanvasScene::elementRemoved, this, &WindowElementsFrame::scheduleRefresh);
+            connect(scene_, &CanvasScene::sceneCleared, this, &WindowElementsFrame::scheduleRefresh);
             connect(scene_, &CanvasScene::sceneSelectionChanged, this, &WindowElementsFrame::onSceneSelectionChanged);
+    connect(scene_, &CanvasScene::selectionBatchFinished, this, [this] {
+        if (refreshPending_) { refreshPending_ = false; refreshElementsList(); }
+    });
             connect(scene_, &QObject::destroyed, this, [this] {
                 scene_ = nullptr;
                 refreshElementsList();
             });
         }
+        refreshElementsList();
+    }
+}
+
+void WindowElementsFrame::scheduleRefresh() {
+    if (scene_ && scene_->isSelectionBatching()) {
+        refreshPending_ = true;
+    } else {
+        refreshPending_ = false;
         refreshElementsList();
     }
 }

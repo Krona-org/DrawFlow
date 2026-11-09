@@ -70,18 +70,13 @@ DeleteElementsCommand::DeleteElementsCommand(CanvasScene *scene, const QList<Sha
     }
 
     // Сохраняем связи внешних коннекторов, присоединенных к удаляемым блокам
+    const QSet<ShapeElement *> removed(elements_.cbegin(), elements_.cend());
     if (scene_) {
         for (QGraphicsItem *item : scene_->items()) {
             if (auto connector = dynamic_cast<ConnectorElement*>(item)) {
-                if (elements_.contains(connector)) continue;
-                bool hasConn = false;
-                for (ShapeElement *elem : elements_) {
-                    if (elem == connector->startBlock() || elem == connector->endBlock()) {
-                        hasConn = true;
-                        break;
-                    }
-                }
-                if (hasConn) {
+                if (removed.contains(connector)) continue;
+                if (removed.contains(connector->startBlock()) ||
+                    removed.contains(connector->endBlock())) {
                     ConnectorConnInfo info;
                     info.startBlock = connector->startBlock();
                     info.startPort = connector->startPort();
@@ -104,6 +99,7 @@ DeleteElementsCommand::~DeleteElementsCommand() {
 
 void DeleteElementsCommand::undo() {
     if (!inScene_ && scene_) {
+        scene_->beginSelectionBatch();
         for (ShapeElement *elem : elements_) {
             scene_->addItem(elem);
             emit scene_->elementAdded(elem);
@@ -121,34 +117,36 @@ void DeleteElementsCommand::undo() {
             connector->setStartConnection(info.startBlock, info.startPort);
             connector->setEndConnection(info.endBlock, info.endPort);
         }
+        QSet<MasterBlockElement *> restoredBlocks;
         for (ShapeElement *elem : elements_) {
-            if (auto block = dynamic_cast<MasterBlockElement*>(elem)) {
-                scene_->updateConnectedLines(block);
-            }
+            if (auto block = dynamic_cast<MasterBlockElement*>(elem))
+                restoredBlocks.insert(block);
         }
+        if (!restoredBlocks.isEmpty())
+            scene_->updateConnectedLinesForBlocks(restoredBlocks);
         inScene_ = true;
+        scene_->endSelectionBatch();
     }
 }
 
 void DeleteElementsCommand::redo() {
     if (inScene_ && scene_) {
-        // Отсоединяем внешние коннекторы от удаляемых блоков, чтобы не было битых указателей
+        scene_->beginSelectionBatch();
+        const QSet<ShapeElement *> removed(elements_.cbegin(), elements_.cend());
+        // Отсоединяем внешние коннекторы от удаляемых блоков.
         for (auto it = externalConnectorConns_.begin(); it != externalConnectorConns_.end(); ++it) {
             ConnectorElement *connector = it.key();
-            for (ShapeElement *elem : elements_) {
-                if (elem == connector->startBlock()) {
-                    connector->setStartConnection(nullptr, PortPosition::None);
-                }
-                if (elem == connector->endBlock()) {
-                    connector->setEndConnection(nullptr, PortPosition::None);
-                }
-            }
+            if (removed.contains(connector->startBlock()))
+                connector->setStartConnection(nullptr, PortPosition::None);
+            if (removed.contains(connector->endBlock()))
+                connector->setEndConnection(nullptr, PortPosition::None);
         }
         for (ShapeElement *elem : elements_) {
             scene_->removeItem(elem);
             emit scene_->elementRemoved(elem);
         }
         inScene_ = false;
+        scene_->endSelectionBatch();
     }
 }
 

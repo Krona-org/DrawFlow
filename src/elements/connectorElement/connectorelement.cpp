@@ -2,6 +2,7 @@
 #include "src/canvas/canvasscene.h"
 #include "src/canvas/orthogonalrouter.h"
 #include "src/canvas/undocommands.h"
+#include "src/themes/canvascolors.h"
 
 #include <QCursor>
 #include <QGraphicsSceneHoverEvent>
@@ -622,7 +623,7 @@ void ConnectorElement::drawArrow(QPainter *painter, const QPointF &tip, const QP
     path.closeSubpath();
 
     painter->save();
-    painter->setBrush(borderColor_);
+    painter->setBrush(isSelected() ? QColor(37, 99, 235) : canvasConnectorColor(borderColor_));
     painter->setPen(Qt::NoPen);
     painter->drawPath(path);
     painter->restore();
@@ -633,7 +634,7 @@ void ConnectorElement::drawShape(QPainter *painter) {
 
     painter->setRenderHint(QPainter::Antialiasing, true);
 
-    QColor lineColor = isSelected() ? QColor(37, 99, 235) : borderColor_;
+    QColor lineColor = isSelected() ? QColor(37, 99, 235) : canvasConnectorColor(borderColor_);
     qreal lineW = isSelected() ? qMax(borderWidth_, 1.8) : borderWidth_;
     QPen pen(lineColor, lineW, borderStyle_, Qt::SquareCap, Qt::MiterJoin);
     painter->setPen(pen);

@@ -1,4 +1,5 @@
 #include "maskelement.h"
+#include "src/themes/canvascolors.h"
 
 #include <QFont>
 #include <QPainter>
@@ -46,7 +47,7 @@ void MaskElement::drawShape(QPainter *painter) {
     const QRectF r = rect_.normalized();
 
     if (fillStyle_ != Qt::NoBrush) {
-        painter->setBrush(QBrush(fillColor_, fillStyle_));
+        painter->setBrush(QBrush(canvasFillColor(fillColor_), fillStyle_));
     } else {
         painter->setBrush(Qt::NoBrush);
     }
@@ -63,7 +64,10 @@ void MaskElement::drawShape(QPainter *painter) {
     painter->drawRect(r);
 
     // Отрисовка текста битовой маски ("1111111XXX")
-    painter->setPen(borderColor_);
+    const QColor textColor = isDarkCanvasTheme() && fillStyle_ == Qt::NoBrush &&
+                                     borderColor_ == QColor(33, 37, 41)
+                                 ? QColor(220, 220, 220) : borderColor_;
+    painter->setPen(textColor);
     static const QFont font = []() {
         QFont f(QStringLiteral("Arial"));
         f.setPixelSize(11);

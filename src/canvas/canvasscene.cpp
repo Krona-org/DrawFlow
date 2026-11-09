@@ -3,12 +3,14 @@
 #include "src/frames/bParamsDialog/data/blockparamsdialog.h"
 #include "undocommands.h"
 
+#include <QApplication>
 #include <QGraphicsSceneMouseEvent>
 #include <QGraphicsView>
 #include <QInputDialog>
 #include <QKeyEvent>
 #include <QPainter>
 #include <cmath>
+#include <climits>
 
 namespace editor {
 
@@ -103,6 +105,7 @@ void CanvasScene::pasteClipboard() {
   qreal offsetVal = step * s_clipboard_.pasteCount;
   QPointF offset(offsetVal, offsetVal);
 
+  beginSelectionBatch();
   clearSelection();
 
   if (undoStack_) {
@@ -110,13 +113,49 @@ void CanvasScene::pasteClipboard() {
   }
 
   QHash<MasterBlockElement *, MasterBlockElement *> oldToNewBlock;
+  QSet<quint32> usedIds, usedBlocks, usedConnectors, usedMasks;
+  auto addNameNumber = [](QSet<quint32> &used, const QString &name,
+                          const QString &prefix, quint32 maxValue) {
+    if (!name.startsWith(prefix)) return;
+    bool ok = false;
+    const uint number = name.mid(prefix.size()).trimmed().toUInt(&ok);
+    if (ok && number > 0 && number <= maxValue) used.insert(number);
+  };
+  for (ShapeElement *element : allElements()) {
+    usedIds.insert(element->id());
+    if (auto block = dynamic_cast<MasterBlockElement *>(element)) {
+      if (block->address() > 0) usedBlocks.insert(block->address());
+      bool ok = false;
+      const uint number = block->stepName().trimmed().toUInt(&ok);
+      if (ok && number > 0 && number <= 65535) usedBlocks.insert(number);
+      addNameNumber(usedBlocks, block->name(), QStringLiteral("MasterBlock "), 65535);
+    } else if (auto connector = dynamic_cast<ConnectorElement *>(element)) {
+      addNameNumber(usedConnectors, connector->name(), QStringLiteral("Connector "), UINT_MAX);
+    } else if (auto mask = dynamic_cast<MaskElement *>(element)) {
+      addNameNumber(usedMasks, mask->name(), QStringLiteral("Mask "), UINT_MAX);
+    }
+  }
+  quint32 blockCandidate = 1, connectorCandidate = 1, maskCandidate = 1;
+  auto allocateNumber = [](QSet<quint32> &used, quint32 &candidate, quint32 maxValue) {
+    while (used.contains(candidate) && candidate < maxValue) ++candidate;
+    const quint32 result = candidate;
+    used.insert(result);
+    if (candidate < maxValue) ++candidate;
+    return result;
+  };
+  auto allocateId = [&] {
+    while (nextElementId_ == 0 || usedIds.contains(nextElementId_)) ++nextElementId_;
+    const quint32 id = nextElementId_++;
+    usedIds.insert(id);
+    return id;
+  };
 
   // 1. Создаем копии блоков K1804 MasterBlock
   for (const auto &data : s_clipboard_.blocks) {
-    quint16 blockNum = nextAvailableMasterBlockNumber();
+    quint16 blockNum = static_cast<quint16>(allocateNumber(usedBlocks, blockCandidate, 65535));
     QString name = QStringLiteral("MasterBlock %1").arg(blockNum);
     auto newBlock =
-        new MasterBlockElement(nextElementId(), name, QUuid::createUuid());
+        new MasterBlockElement(allocateId(), name, QUuid::createUuid());
     newBlock->setPos(snapPoint(data.pos + offset));
     newBlock->setRect(data.rect);
     newBlock->setAddress(blockNum);
@@ -144,10 +183,10 @@ void CanvasScene::pasteClipboard() {
 
   // 2. Создаем копии коннекторов
   for (const auto &data : s_clipboard_.connectors) {
-    quint32 connNum = nextAvailableConnectorNumber();
+    quint32 connNum = allocateNumber(usedConnectors, connectorCandidate, UINT_MAX);
     QString name = QStringLiteral("Connector %1").arg(connNum);
     auto newConn =
-        new ConnectorElement(nextElementId(), name, QUuid::createUuid());
+        new ConnectorElement(allocateId(), name, QUuid::createUuid());
     // Маршрутизатор работает в координатах сцены; положение коннектора
     // оставляем нулевым, перенося смещение в его локальные точки ровно раз.
     const QPointF translatedPos = snapPoint(data.pos + offset);
@@ -190,9 +229,9 @@ void CanvasScene::pasteClipboard() {
 
   // 3. Создаем копии плашек Mask
   for (const auto &data : s_clipboard_.masks) {
-    quint32 maskNum = nextAvailableMaskNumber();
+    quint32 maskNum = allocateNumber(usedMasks, maskCandidate, UINT_MAX);
     QString name = QStringLiteral("Mask %1").arg(maskNum);
-    auto newMask = new MaskElement(nextElementId(), name, QUuid::createUuid());
+    auto newMask = new MaskElement(allocateId(), name, QUuid::createUuid());
     newMask->setPos(snapPoint(data.pos + offset));
     newMask->setRect(data.rect);
     newMask->setMaskText(data.maskText);
@@ -216,10 +255,12 @@ void CanvasScene::pasteClipboard() {
     undoStack_->endMacro();
   }
 
-  // 3. Обновляем маршруты связанных коннекторов
-  for (auto it = oldToNewBlock.begin(); it != oldToNewBlock.end(); ++it) {
-    updateConnectedLines(it.value());
-  }
+  QSet<MasterBlockElement *> pastedBlocks;
+  for (auto it = oldToNewBlock.begin(); it != oldToNewBlock.end(); ++it)
+    pastedBlocks.insert(it.value());
+  if (!pastedBlocks.isEmpty())
+    updateConnectedLinesForBlocks(pastedBlocks);
+  endSelectionBatch();
 }
 
 void CanvasScene::duplicateSelection() {
@@ -227,20 +268,38 @@ void CanvasScene::duplicateSelection() {
   pasteClipboard();
 }
 
+void CanvasScene::beginSelectionBatch() { ++selectionBatchDepth_; }
+
+void CanvasScene::endSelectionBatch() {
+  Q_ASSERT(selectionBatchDepth_ > 0);
+  if (--selectionBatchDepth_ == 0) {
+    emit selectionBatchFinished();
+    if (selectionBatchChanged_) {
+      selectionBatchChanged_ = false;
+      emit selectionChanged();
+    }
+  }
+}
+
 void CanvasScene::selectAllElements() {
+  beginSelectionBatch();
   for (QGraphicsItem *item : items()) {
     if (auto shape = dynamic_cast<ShapeElement *>(item)) {
       shape->setSelected(true);
     }
   }
+  endSelectionBatch();
 }
 
 CanvasScene::CanvasScene(QObject *parent) : QGraphicsScene(parent) {
   setSceneRect(-5000, -5000, 10000, 10000);
   undoStack_ = new QUndoStack(this);
-  connect(this, &QGraphicsScene::selectionChanged, this,
-          &CanvasScene::sceneSelectionChanged);
   connect(this, &QGraphicsScene::selectionChanged, this, [this]() {
+    if (selectionBatchDepth_ > 0) {
+      selectionBatchChanged_ = true;
+      return;
+    }
+    emit sceneSelectionChanged();
     bool hasConn = false;
     for (QGraphicsItem *item : selectedItems()) {
       if (dynamic_cast<ConnectorElement *>(item)) {
@@ -854,7 +913,10 @@ void CanvasScene::clearAll() {
 }
 
 void CanvasScene::drawBackground(QPainter *painter, const QRectF &rect) {
-  painter->fillRect(rect, QColor(232, 235, 239));
+  // Цвета объектов принадлежат проекту; стандартные цвета адаптируются
+  // при отрисовке, не изменяя данные документа.
+  const bool darkTheme = qApp && qApp->property("drawflowDarkTheme").toBool();
+  painter->fillRect(rect, darkTheme ? QColor(76, 76, 76) : QColor(241, 245, 249));
 
   if (!showGrid_ || gridSize_ <= 0.0) {
     return;
@@ -863,80 +925,58 @@ void CanvasScene::drawBackground(QPainter *painter, const QRectF &rect) {
   painter->save();
   painter->setRenderHint(QPainter::Antialiasing, false);
 
-  QPen minorPen(QColor(212, 217, 223), 1.0);
-  minorPen.setCosmetic(true);
-
-  QPen majorPen(QColor(190, 197, 205), 1.0);
-  majorPen.setCosmetic(true);
-
+  // Соседние уровни кратны пяти и привязаны к началу координат сцены.
+  // Мелкие линии плавно исчезают до того, как начнут сливаться в пикселях.
   const QTransform &transform = painter->worldTransform();
-  qreal pixelStep =
-      std::hypot(gridSize_ * transform.m11(), gridSize_ * transform.m12());
-  if (pixelStep <= 0.0) {
-    pixelStep = gridSize_;
+  const qreal scaleX = std::hypot(transform.m11(), transform.m12());
+  const qreal scaleY = std::hypot(transform.m21(), transform.m22());
+  const qreal scale = std::min(scaleX, scaleY);
+  if (!std::isfinite(scale) || scale <= 0.0) {
+    painter->restore();
+    return;
   }
 
-  int stepMultiplier = 1;
-  if (pixelStep < 4.0) {
-    stepMultiplier = 5;
-    while (pixelStep * stepMultiplier < 4.0 && stepMultiplier <= 500) {
-      stepMultiplier *= 5;
+  qreal step = gridSize_;
+  while (step * scale < 8.0) {
+    step *= 5.0;
+    if (!std::isfinite(step)) {
+      painter->restore();
+      return;
     }
   }
 
-  QRectF r = rect.normalized();
-  qreal left = r.left();
-  qreal right = r.right();
-  qreal top = r.top();
-  qreal bottom = r.bottom();
+  const qreal opacity = std::clamp((step * scale - 8.0) / 8.0, 0.0, 1.0);
+  const QRectF r = rect.normalized();
+  const qreal coarseStep = step * 5.0;
+  QList<QLineF> fineLines;
+  QList<QLineF> coarseLines;
 
-  QList<QLineF> minorLines;
-  QList<QLineF> majorLines;
-
-  int majorInterval = std::max(2, (int)std::round(100.0 / gridSize_));
-
-  if (stepMultiplier > 1) {
-    qreal effectiveStep = gridSize_ * stepMultiplier;
-    qreal startX = std::floor(left / effectiveStep) * effectiveStep;
-    qreal startY = std::floor(top / effectiveStep) * effectiveStep;
-
-    for (qreal x = startX; x <= right; x += effectiveStep) {
-      minorLines.append(QLineF(x, top, x, bottom));
+  auto appendLines = [&](qreal first, qreal last, bool vertical) {
+    const qreal startIndex = std::floor(first / step);
+    const qreal endIndex = std::ceil(last / step);
+    for (qreal index = startIndex; index <= endIndex; index += 1.0) {
+      const qreal pos = index * step;
+      const bool coarse = std::abs(std::remainder(pos, coarseStep)) < step * 0.01;
+      QLineF line = vertical ? QLineF(pos, r.top(), pos, r.bottom())
+                             : QLineF(r.left(), pos, r.right(), pos);
+      (coarse ? coarseLines : fineLines).append(line);
     }
-    for (qreal y = startY; y <= bottom; y += effectiveStep) {
-      minorLines.append(QLineF(left, y, right, y));
-    }
-  } else {
-    qreal startX = std::floor(left / gridSize_) * gridSize_;
-    qreal startY = std::floor(top / gridSize_) * gridSize_;
+  };
+  appendLines(r.left(), r.right(), true);
+  appendLines(r.top(), r.bottom(), false);
 
-    for (qreal x = startX; x <= right; x += gridSize_) {
-      int gridIndex = (int)std::round(x / gridSize_);
-      if (gridIndex % majorInterval == 0) {
-        majorLines.append(QLineF(x, top, x, bottom));
-      } else {
-        minorLines.append(QLineF(x, top, x, bottom));
-      }
-    }
+  const QColor gridColor = darkTheme ? QColor(104, 104, 104) : QColor(195, 205, 218);
+  QColor fineColor = gridColor;
+  fineColor.setAlphaF(opacity);
+  QPen finePen(fineColor, 1.0);
+  finePen.setCosmetic(true);
+  painter->setPen(finePen);
+  painter->drawLines(fineLines.constData(), fineLines.size());
 
-    for (qreal y = startY; y <= bottom; y += gridSize_) {
-      int gridIndex = (int)std::round(y / gridSize_);
-      if (gridIndex % majorInterval == 0) {
-        majorLines.append(QLineF(left, y, right, y));
-      } else {
-        minorLines.append(QLineF(left, y, right, y));
-      }
-    }
-  }
-
-  if (!minorLines.isEmpty()) {
-    painter->setPen(minorPen);
-    painter->drawLines(minorLines.constData(), minorLines.size());
-  }
-  if (!majorLines.isEmpty()) {
-    painter->setPen(majorPen);
-    painter->drawLines(majorLines.constData(), majorLines.size());
-  }
+  QPen coarsePen(gridColor, 1.0);
+  coarsePen.setCosmetic(true);
+  painter->setPen(coarsePen);
+  painter->drawLines(coarseLines.constData(), coarseLines.size());
 
   painter->restore();
 }

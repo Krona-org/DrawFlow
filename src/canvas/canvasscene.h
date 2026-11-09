@@ -57,6 +57,10 @@ public:
   void pasteClipboard();
   void duplicateSelection();
   void selectAllElements();
+  void beginSelectionBatch();
+  void endSelectionBatch();
+  bool isSelectionBatching() const { return selectionBatchDepth_ > 0; }
+  void updateConnectedLinesForBlocks(const QSet<MasterBlockElement *> &movedBlocks);
   static bool hasClipboardContent();
 
   // Маршрутизация и обновление связанных линий
@@ -76,6 +80,7 @@ signals:
   void sceneCleared();
   void activeToolChanged(ElementType tool);
   void sceneSelectionChanged();
+  void selectionBatchFinished();
   void gridSizeChanged(qreal size);
   void pageFormatChanged(PageFormat format);
 
@@ -109,8 +114,9 @@ private:
   PortPosition lastHoveredPort_ = PortPosition::None;
 
   bool isBatchingMove_ = false;
+  int selectionBatchDepth_ = 0;
+  bool selectionBatchChanged_ = false;
   QSet<MasterBlockElement *> dirtyMovedBlocks_;
-  void updateConnectedLinesForBlocks(const QSet<MasterBlockElement *> &movedBlocks);
 
   quint32 nextElementId();
   quint16 nextAvailableMasterBlockNumber() const;

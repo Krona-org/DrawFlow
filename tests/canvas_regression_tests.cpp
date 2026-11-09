@@ -1,7 +1,10 @@
 #include "src/canvas/canvasscene.h"
 #include "src/canvas/undocommands.h"
+#include "src/themes/canvascolors.h"
 #include <QApplication>
 #include <QDebug>
+#include <QImage>
+#include <QPainter>
 
 using namespace editor;
 
@@ -42,5 +45,54 @@ int main(int argc, char **argv) {
     CHECK(copy->routeState() == before);
     scene.undoStack()->redo();
     CHECK(copy->routeState() == after);
+
+    CanvasScene bulk;
+    for (int i = 1; i <= 150; ++i)
+        bulk.addItem(new MaskElement(i, QStringLiteral("Mask %1").arg(i), QUuid::createUuid()));
+    int selectionNotifications = 0;
+    QObject::connect(&bulk, &CanvasScene::sceneSelectionChanged, [&] { ++selectionNotifications; });
+    bulk.selectAllElements();
+    CHECK(bulk.selectedItems().size() == 150);
+    CHECK(selectionNotifications == 1);
+    bulk.copySelection();
+    bulk.pasteClipboard();
+    CHECK(bulk.allElements().size() == 300);
+    CHECK(bulk.selectedItems().size() == 150);
+    CHECK(selectionNotifications == 2);
+    QSet<quint32> ids;
+    QSet<QString> names;
+    for (auto *element : bulk.allElements()) {
+        ids.insert(element->id());
+        names.insert(element->name());
+    }
+    CHECK(ids.size() == 300);
+    CHECK(names.size() == 300);
+    bulk.deleteSelectedElements();
+    CHECK(bulk.allElements().size() == 150);
+    bulk.undoStack()->undo();
+    CHECK(bulk.allElements().size() == 300);
+    CHECK(bulk.selectedItems().size() == 150);
+    bulk.undoStack()->redo();
+    CHECK(bulk.allElements().size() == 150);
+
+    CanvasScene themeScene;
+    themeScene.setGridVisible(false);
+    auto *themeMask = new MaskElement(1, QStringLiteral("Mask 1"), QUuid::createUuid());
+    const QColor originalFill = themeMask->fillColor();
+    themeScene.addItem(themeMask);
+    QImage lightImage(20, 20, QImage::Format_ARGB32);
+    QImage darkImage(20, 20, QImage::Format_ARGB32);
+    app.setProperty("drawflowDarkTheme", false);
+    { QPainter painter(&lightImage); themeScene.render(&painter, QRectF(0, 0, 20, 20), QRectF(500, 500, 20, 20)); }
+    app.setProperty("drawflowDarkTheme", true);
+    { QPainter painter(&darkImage); themeScene.render(&painter, QRectF(0, 0, 20, 20), QRectF(500, 500, 20, 20)); }
+    CHECK(darkImage.pixelColor(10, 10).lightness() < lightImage.pixelColor(10, 10).lightness());
+    CHECK(darkImage.pixelColor(10, 10) == QColor(76, 76, 76));
+    CHECK(canvasFillColor(QColor(242, 244, 247)) == QColor(190, 190, 190));
+    CHECK(canvasConnectorColor(QColor(24, 24, 27)) == QColor(220, 220, 220));
+    CHECK(canvasFillColor(QColor(123, 45, 67)) == QColor(123, 45, 67));
+    CHECK(canvasConnectorColor(QColor(123, 45, 67)) == QColor(123, 45, 67));
+    CHECK(themeMask->fillColor() == originalFill);
+    app.setProperty("drawflowDarkTheme", false);
     return 0;
 }
